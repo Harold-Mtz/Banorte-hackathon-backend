@@ -1,4 +1,4 @@
-export interface MortgageSimulation {
+export interface MortgageSimulationRow {
   id: string;
   user_id: string;
   life_event_id: string | null;
