@@ -5,14 +5,17 @@
 INSERT INTO users (
     id,
     name,
-    email
+    email,
+    password_hash
 )
 VALUES (
     '11111111-1111-1111-1111-111111111111',
     'Ana Martínez',
-    'ana.martinez@demo.com'
+    'ana.martinez@demo.com',
+    '$2b$12$2jPMnubdEUPuEg2pu9gkZO9.aVrArIDQR1kpPGopVcDxSgkcZ8UjW'
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE
+SET password_hash = EXCLUDED.password_hash;
 
 
 -- ============================================================

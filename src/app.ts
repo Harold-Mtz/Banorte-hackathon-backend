@@ -9,12 +9,18 @@ import savingsGoalRoutes from "./routes/savings-goal.routes";
 import agentSessionRoutes from "./routes/agent-session.routes";
 import interactionRoutes from "./routes/interaction.routes";
 import uiStateRoutes from "./routes/ui-state.routes";
+import agentRoutes from "./routes/agent.routes";
+import testAiRoutes from "./routes/test-ai.routes";
+import authRoutes from "./routes/auth.routes";
+import { handleMcpRequest } from "./mcp/http";
 
 const app = express();
 
 app.use(cors());
-
 app.use(express.json());
+
+app.all("/mcp", handleMcpRequest);
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/financial-profiles", financialProfileRoutes);
 app.get("/health", (_req, res) => {
@@ -24,15 +30,16 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use('/api/life-events',lifeEventRoutes);
-app.use('/api/life-events',lifeEventRoutes);
-app.use('/api/savings-goals',savingsGoalRoutes);
-app.use('/api/agent/sessions',agentSessionRoutes);
-app.use('/api/agent/interactions',interactionRoutes);
-app.use('/api', uiStateRoutes);
+app.use("/api/life-events", lifeEventRoutes);
+app.use("/api/savings-goals", savingsGoalRoutes);
+app.use("/api/agent/sessions", agentSessionRoutes);
+app.use("/api/agent/interactions", interactionRoutes);
+app.use("/api", uiStateRoutes);
 app.use("/api/financial-products", financialProductRoutes);
 app.use("/api/mortgages", mortgageRoutes);
 app.use("/api/mortgage", mortgageRoutes);
 app.use("/api/users/:userId", userMortgageRouter);
+app.use("/api/agent", agentRoutes);
+app.use("/api/test-ai", testAiRoutes);
 
 export default app;
