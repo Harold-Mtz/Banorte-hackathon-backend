@@ -1,23 +1,24 @@
 import { Pool } from "pg";
-import dotenv from "dotenv";
+import "dotenv/config";
 
-dotenv.config();
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL no está definida");
+if (!databaseUrl) {
+  throw new Error(
+    "DATABASE_URL no está definida en el archivo .env"
+  );
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-
-  // Para evitar abrir demasiadas conexiones.
+  connectionString: databaseUrl,
   max: 5,
-  // Cierra conexiones inactivas después de 10 segundos.
-  idleTimeoutMillis: 10000,
-  // Espera máximo 5 segundos para conectarse.
-  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 5_000,
 });
 
-pool.on("error", (error) => {
-  console.error("Error inesperado en PostgreSQL:", error);
+pool.on("error", (error: Error) => {
+  console.error(
+    "Error inesperado en PostgreSQL:",
+    error
+  );
 });
