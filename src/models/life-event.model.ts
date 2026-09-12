@@ -15,6 +15,7 @@ export interface LifeEvent {
     id: string,
     userId: string,
     type: LifeEventType,
+    title: string,
     status: LifeEventStatus,
     context: Record<string, unknown>,
     createdAt: Date,
