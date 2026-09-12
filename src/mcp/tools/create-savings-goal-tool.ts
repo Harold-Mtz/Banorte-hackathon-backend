@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { ISavingsGoalService } from '../../interfaces/savings-goal-service.interface';
+import { z } from "zod";
+import { ISavingsGoalService } from "../../interfaces/savings-goal.interface";
 
 export const createSavingsGoalInputSchema = z.object({
   userId: z.string().uuid(),
@@ -12,33 +12,28 @@ export const createSavingsGoalInputSchema = z.object({
 
   currentAmount: z.number().nonnegative().optional(),
 
-  monthlyContribution:
-    z.number().positive().optional(),
+  monthlyContribution: z.number().positive().optional(),
 
-  targetDate: z.string().optional()
+  targetDate: z.string().optional(),
 });
 
-export type CreateSavingsGoalInput =
-  z.infer<typeof createSavingsGoalInputSchema>;
+export type CreateSavingsGoalInput = z.infer<
+  typeof createSavingsGoalInputSchema
+>;
 
 export const createSavingsGoalTool = (
-  savingsGoalService: ISavingsGoalService
+  savingsGoalService: ISavingsGoalService,
 ) => {
-  return async (
-    input: CreateSavingsGoalInput
-  ) => {
-
-    const goal =
-      await savingsGoalService.create({
-        userId: input.userId,
-        lifeEventId: input.lifeEventId,
-        name: input.name,
-        targetAmount: input.targetAmount,
-        currentAmount: input.currentAmount,
-        monthlyContribution:
-          input.monthlyContribution,
-        targetDate: input.targetDate
-      });
+  return async (input: CreateSavingsGoalInput) => {
+    const goal = await savingsGoalService.create({
+      userId: input.userId,
+      lifeEventId: input.lifeEventId,
+      name: input.name,
+      targetAmount: input.targetAmount,
+      currentAmount: input.currentAmount,
+      monthlyContribution: input.monthlyContribution,
+      targetDate: input.targetDate,
+    });
 
     return {
       id: goal.id,
@@ -47,10 +42,9 @@ export const createSavingsGoalTool = (
       name: goal.name,
       targetAmount: goal.targetAmount,
       currentAmount: goal.currentAmount,
-      monthlyContribution:
-        goal.monthlyContribution,
+      monthlyContribution: goal.monthlyContribution,
       targetDate: goal.targetDate,
-      status: goal.status
+      status: goal.status,
     };
   };
 };

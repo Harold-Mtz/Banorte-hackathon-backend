@@ -21,7 +21,10 @@
   "homepage": "https://github.com/Harold-Mtz/Banorte-hackathon-backend#readme",
   "dependencies": {
     "@google/genai": "^2.22.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
