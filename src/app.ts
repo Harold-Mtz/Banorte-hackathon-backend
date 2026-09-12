@@ -10,6 +10,7 @@ import agentSessionRoutes from "./routes/agent-session.routes";
 import interactionRoutes from "./routes/interaction.routes";
 import uiStateRoutes from "./routes/ui-state.routes";
 import agentRoutes from "./routes/agent.routes"
+import testAiRoutes from "./routes/test-ai.routes";
 
 const app = express();
 
@@ -36,6 +37,6 @@ app.use("/api/mortgages", mortgageRoutes);
 app.use("/api/mortgage", mortgageRoutes);
 app.use("/api/users/:userId", userMortgageRouter);
 app.use('/api/agent', agentRoutes);
-
+app.use('/api/test-ai', testAiRoutes);
 
 export default app;
