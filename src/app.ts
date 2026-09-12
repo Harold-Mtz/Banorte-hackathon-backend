@@ -9,6 +9,7 @@ import savingsGoalRoutes from "./routes/savings-goal.routes";
 import agentSessionRoutes from "./routes/agent-session.routes";
 import interactionRoutes from "./routes/interaction.routes";
 import uiStateRoutes from "./routes/ui-state.routes";
+import agentRoutes from "./routes/agent.routes"
 
 const app = express();
 
@@ -34,5 +35,7 @@ app.use("/api/financial-products", financialProductRoutes);
 app.use("/api/mortgages", mortgageRoutes);
 app.use("/api/mortgage", mortgageRoutes);
 app.use("/api/users/:userId", userMortgageRouter);
+app.use('/api/agent', agentRoutes);
+
 
 export default app;
