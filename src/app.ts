@@ -11,6 +11,7 @@ import interactionRoutes from "./routes/interaction.routes";
 import uiStateRoutes from "./routes/ui-state.routes";
 import agentRoutes from "./routes/agent.routes";
 import testAiRoutes from "./routes/test-ai.routes";
+import authRoutes from "./routes/auth.routes";
 import { handleMcpRequest } from "./mcp/http";
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 app.all("/mcp", handleMcpRequest);
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/financial-profiles", financialProfileRoutes);
 app.get("/health", (_req, res) => {
