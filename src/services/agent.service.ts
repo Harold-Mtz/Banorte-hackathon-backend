@@ -3,83 +3,129 @@ import { IFinancialService } from '../interfaces/financial-service.interface';
 import { AgentRequestDTO } from '../dtos/agent-request.dto';
 import { AgentResponse } from '../responses/agent-response';
 import { randomUUID } from 'crypto';
+import { LLMClient } from '../ai/llm-client.interface';
 
 export class AgentService implements IAgentService {
 
   constructor(
-    private readonly financialService: IFinancialService
+    private readonly financialService: IFinancialService,
+    private readonly llm: LLMClient
   ) {}
 
+  
   async processMessage(
-    data: AgentRequestDTO
-  ): Promise<AgentResponse> {
+  data: AgentRequestDTO
+): Promise<AgentResponse> {
 
-    const financialProfile =
-      await this.financialService.getProfile(data.userId);
+  const intentResponse = await this.llm.generate([
+    {
+      role: 'system',
+      content: `
+You are an intent classifier for a banking application.
 
-    if (!financialProfile) {
-      throw new Error('Financial profile not found');
+Allowed values:
+
+FIRST_HOME
+CAR_PURCHASE
+MARRIAGE
+CHILD
+EDUCATION
+TRAVEL
+UNKNOWN
+
+Return ONLY one value.
+      `
+    },
+    {
+      role: 'user',
+      content: data.message
     }
+  ]);
 
-    return {
-      sessionId: data.sessionId ?? randomUUID(),
+  const intent = intentResponse.trim();
 
-      message:
-        'Analicé tu situación financiera y preparé una experiencia para ayudarte.',
+  const financialProfile =
+    await this.financialService.getProfile(
+      data.userId
+    );
 
-      intent: 'FIRST_HOME',
+  if (!financialProfile) {
+    throw new Error(
+      'Financial profile not found'
+    );
+  }
 
-      ui: {
-        version: '1.0',
+  return {
+    sessionId:
+      data.sessionId ?? randomUUID(),
 
-        screen: {
-          title: 'Tu primera casa',
-          subtitle:
-            'Explora tu situación financiera y simula opciones'
+    message:
+      'Analicé tu situación financiera y preparé una experiencia para ayudarte.',
+
+    intent,
+
+    ui: {
+      version: '1.0',
+
+      screen: {
+        title:
+          intent === 'FIRST_HOME'
+            ? 'Tu primera casa'
+            : 'Tu experiencia financiera',
+
+        subtitle:
+          'Explora tu situación financiera y simula opciones'
+      },
+
+      components: [
+        {
+          id: 'financial-summary-1',
+
+          type: 'financial-summary',
+
+          props: {
+            monthlyIncome:
+              financialProfile.monthlyIncome,
+
+            monthlyExpenses:
+              financialProfile.monthlyExpenses,
+
+            currentSavings:
+              financialProfile.currentSavings,
+
+            currentDebt:
+              financialProfile.currentDebt
+          }
         },
 
-        components: [
-          {
-            id: 'financial-summary-1',
-            type: 'financial-summary',
+        {
+          id: 'mortgage-simulator-1',
 
-            props: {
-              monthlyIncome:
-                financialProfile.monthlyIncome,
+          type: 'mortgage-simulator',
 
-              monthlyExpenses:
-                financialProfile.monthlyExpenses,
+          props: {
+            propertyValue: 1800000,
 
-              currentSavings:
-                financialProfile.currentSavings,
+            downPayment:
+              financialProfile.currentSavings,
 
-              currentDebt:
-                financialProfile.currentDebt
-            }
+            termMonths: 240
           },
 
-          {
-            id: 'mortgage-simulator-1',
-            type: 'mortgage-simulator',
+          actions: [
+            {
+              id: 'update-simulation',
 
-            props: {
-              propertyValue: 1800000,
-              downPayment:
-                financialProfile.currentSavings,
+              type:
+                'UPDATE_DOWN_PAYMENT',
 
-              termMonths: 240
-            },
-
-            actions: [
-              {
-                id: 'update-simulation',
-                type: 'UPDATE_DOWN_PAYMENT',
-                label: 'Actualizar simulación'
-              }
-            ]
-          }
-        ]
-      }
-    };
-  }
+              label:
+                'Actualizar simulación'
+            }
+          ]
+        }
+      ]
+    }
+  };
+}
 }
