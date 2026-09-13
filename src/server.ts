@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import app from "./app";
 import { pool } from "./config/database";
-import { startGoalReminderScheduler } from "./schedulers/goal-reminder.scheduler";
+
 dotenv.config();
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -16,7 +16,6 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
-    startGoalReminderScheduler();
   } catch (error) {
     console.error("❌ No fue posible conectar con PostgreSQL");
     console.error(error);
