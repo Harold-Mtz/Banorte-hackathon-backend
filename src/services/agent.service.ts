@@ -35,6 +35,7 @@ Allowed values:
 
 FIRST_HOME
 CAR_PURCHASE
+SAVINGS_GOAL
 MARRIAGE
 CHILD
 EDUCATION
@@ -50,7 +51,10 @@ Return ONLY one value.
       }
     ]);
 
-    intent = intentResponse.trim().toUpperCase();
+        intent = intentResponse.trim().toUpperCase();
+        if (intent === 'UNKNOWN') {
+          intent = this.classifyIntentLocally(data.message);
+        }
   } catch (error) {
     console.error('LLM intent classification failed:', error);
     intent = this.classifyIntentLocally(data.message);
@@ -69,6 +73,30 @@ Return ONLY one value.
 
   const sessionId = await this.ensureSession(data.userId, data.sessionId, intent);
   const availableMonthlyCash = financialProfile.monthlyIncome - financialProfile.monthlyExpenses - financialProfile.currentDebt;
+  if (intent === 'SAVINGS_GOAL') {
+    return {
+      sessionId,
+      message: 'Qué bien. Vamos a aterrizarlo en un plan posible para ti.',
+      intent,
+      ui: {
+        version: '1.0',
+        screen: { title: 'Tu meta de ahorro', subtitle: 'Convierte una intención en un plan claro' },
+        components: [{
+          id: 'savings-goal-1',
+          type: 'savings-goal-form',
+          title: 'Dale forma a tu meta',
+          description: 'Boreas convierte una intención en un plan que sí puedes seguir.',
+          props: {
+            targetAmount: Math.max(20000, Math.round(financialProfile.currentSavings * 0.67)),
+            targetDate: '2027-06-01',
+            initialAmount: 0,
+            suggestedMonthlyContribution: Math.max(1000, Math.round(availableMonthlyCash * 0.25)),
+            lifeEvent: 'Meta Boreas'
+          }
+        }]
+      }
+    };
+  }
   const propertyValue = Math.max(1000000, Math.round(availableMonthlyCash * 120));
   const downPayment = Math.min(financialProfile.currentSavings, Math.round(propertyValue * 0.4));
 
@@ -182,6 +210,10 @@ Return ONLY one value.
 
   private classifyIntentLocally(message: string): string {
     const normalizedMessage = message.toLowerCase();
+
+    if (/(ahorr|ahorro|meta|fondo|guardar dinero)/.test(normalizedMessage)) {
+      return 'SAVINGS_GOAL';
+    }
 
     if (/(auto|coche|carro|vehículo|vehiculo)/.test(normalizedMessage)) {
       return 'CAR_PURCHASE';
