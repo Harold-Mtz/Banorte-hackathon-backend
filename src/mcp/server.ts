@@ -1,23 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+// Repositories
 import { FinancialProfileRepository } from "../repositories/financial-profile.repository";
 import { GoalReminderRepository } from "../repositories/goal-reminder.repository";
-
 import { SavingsGoalRepository } from "../repositories/savings-goal.repository";
-import { SavingsGoalService } from "../services/savings-goal.service";
 
-import {
-  createGetGoalProgressTool,
-  getGoalProgressInputSchema,
-} from "./tools/get-goal-progress.tool";
+// Services
 import { FinancialService } from "../services/financial.service";
 import { AmortizationService } from "../services/amortization.service";
 import { RefinancingService } from "../services/refinancing.service";
+import { PrequalificationService } from "../services/prequalification.service";
 import { GoalReminderService } from "../services/goal-reminder.service";
 
-/*
- * Tools
- */
+// Tools
 import {
   createGetFinancialProfileTool,
   getFinancialProfileInputSchema,
@@ -38,7 +33,18 @@ import {
   configureGoalReminderInputSchema,
 } from "./tools/configure-goal-reminder.tool";
 
+import {
+  createPrequalifyCreditTool,
+  prequalifyCreditInputSchema,
+} from "./tools/prequalify-credit.tool";
+
 export const createMcpServer = () => {
+  /*
+   * =========================
+   * MCP SERVER
+   * =========================
+   */
+
   const server = new McpServer({
     name: "banorte-adaptive-life",
     version: "1.0.0",
@@ -46,48 +52,81 @@ export const createMcpServer = () => {
 
   /*
    * =========================
-   * Repositories
+   * REPOSITORIES
    * =========================
    */
 
-  const financialProfileRepository = new FinancialProfileRepository();
+  const financialProfileRepository =
+    new FinancialProfileRepository();
 
-  const goalReminderRepository = new GoalReminderRepository();
-  const savingsGoalRepository = new SavingsGoalRepository();
-  /*
-   * =========================
-   * Services
-   * =========================
-   */
+  const savingsGoalRepository =
+    new SavingsGoalRepository();
 
-  const financialService = new FinancialService(financialProfileRepository);
-
-  const amortizationService = new AmortizationService();
-
-  const refinancingService = new RefinancingService();
-
-  const goalReminderService = new GoalReminderService(goalReminderRepository);
-
-  const savingsGoalService = new SavingsGoalService(savingsGoalRepository);
+  const goalReminderRepository =
+    new GoalReminderRepository();
 
   /*
    * =========================
-   * Tools
+   * SERVICES
    * =========================
    */
 
-  const getFinancialProfile = createGetFinancialProfileTool(financialService);
+  const financialService =
+    new FinancialService(
+      financialProfileRepository
+    );
+
+  const amortizationService =
+    new AmortizationService();
+
+  const refinancingService =
+    new RefinancingService();
+
+  const prequalificationService =
+    new PrequalificationService(
+      financialService,
+      amortizationService
+    );
+
+  const goalReminderService =
+    new GoalReminderService(
+      goalReminderRepository
+    );
+
+  /*
+   * =========================
+   * TOOL HANDLERS
+   * =========================
+   */
+
+  const getFinancialProfile =
+    createGetFinancialProfileTool(
+      financialService
+    );
 
   const generateAmortizationSchedule =
-    createGenerateAmortizationScheduleTool(amortizationService);
+    createGenerateAmortizationScheduleTool(
+      amortizationService
+    );
 
-  const analyzeRefinancing = createAnalyzeRefinancingTool(refinancingService);
+  const analyzeRefinancing =
+    createAnalyzeRefinancingTool(
+      refinancingService
+    );
 
-  const configureGoalReminder = configureGoalReminderTool(goalReminderService);
-  const getGoalProgress = createGetGoalProgressTool(savingsGoalService);
+  const prequalifyCredit =
+    createPrequalifyCreditTool(
+      prequalificationService
+    );
+
+  const configureGoalReminder =
+    configureGoalReminderTool(
+      goalReminderService
+    );
+
   /*
    * =========================
-   * MCP Tool Registration
+   * TOOL: getFinancialProfile
    * =========================
    */
 
@@ -98,8 +137,11 @@ export const createMcpServer = () => {
 
     getFinancialProfileInputSchema.shape,
 
-    async (input) => {
-      const result = await getFinancialProfile(input);
+    async ({ userId }) => {
+      const result =
+        await getFinancialProfile({
+          userId,
+        });
 
       return {
         content: [
@@ -109,18 +151,33 @@ export const createMcpServer = () => {
           },
         ],
       };
-    },
+    }
   );
+
+  /*
+   * =========================
+   * TOOL: generateAmortizationSchedule
+   * =========================
+   */
 
   server.tool(
     "generateAmortizationSchedule",
 
-    "Generates an amortization schedule for a loan using the provided amount, rate and term.",
+    "Generates an amortization schedule for a credit including monthly payment, principal, interest and remaining balance.",
 
     generateAmortizationScheduleInputSchema.shape,
 
-    async (input) => {
-      const result = await generateAmortizationSchedule(input);
+    async ({
+      principal,
+      annualInterestRate,
+      termMonths,
+    }) => {
+      const result =
+        await generateAmortizationSchedule({
+          principal,
+          annualInterestRate,
+          termMonths,
+        });
 
       return {
         content: [
@@ -130,18 +187,39 @@ export const createMcpServer = () => {
           },
         ],
       };
-    },
+    }
   );
+
+  /*
+   * =========================
+   * TOOL: analyzeRefinancing
+   * =========================
+   */
 
   server.tool(
     "analyzeRefinancing",
 
-    "Analyzes whether refinancing an existing credit could reduce the monthly payment or total financial cost.",
+    "Analyzes whether refinancing an existing credit could be financially beneficial.",
 
     analyzeRefinancingInputSchema.shape,
 
-    async (input) => {
-      const result = await analyzeRefinancing(input);
+    async ({
+      currentBalance,
+      currentAnnualRate,
+      remainingTermMonths,
+      newAnnualRate,
+      newTermMonths,
+      refinancingFees,
+    }) => {
+      const result =
+        await analyzeRefinancing({
+          currentBalance,
+          currentAnnualRate,
+          remainingTermMonths,
+          newAnnualRate,
+          newTermMonths,
+          refinancingFees,
+        });
 
       return {
         content: [
@@ -151,38 +229,25 @@ export const createMcpServer = () => {
           },
         ],
       };
-    },
+    }
   );
-  server.tool(
-    "getGoalProgress",
 
-    "Gets the current progress of a savings goal and determines whether the user is ahead, on track, behind, completed, or has no savings plan.",
-
-    getGoalProgressInputSchema.shape,
-
-    async (input) => {
-      const result = await getGoalProgress(input);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    },
-  );
+  /*
+   * =========================
+   * TOOL: configureGoalReminder
+   * =========================
+   */
 
   server.tool(
     "configureGoalReminder",
 
-    "Configures when a user wants to receive reminders about a savings goal.",
+    "Configures reminders associated with a savings goal.",
 
     configureGoalReminderInputSchema.shape,
 
     async (input) => {
-      const result = await configureGoalReminder(input);
+      const result =
+        await configureGoalReminder(input);
 
       return {
         content: [
@@ -192,7 +257,45 @@ export const createMcpServer = () => {
           },
         ],
       };
-    },
+    }
+  );
+
+  /*
+   * =========================
+   * TOOL: prequalifyCredit
+   * =========================
+   */
+
+  server.tool(
+    "prequalifyCredit",
+
+    "Estimates whether a user could qualify for a requested credit amount based on financial profile, estimated monthly payment and synthetic credit rules.",
+
+    prequalifyCreditInputSchema.shape,
+
+    async ({
+      userId,
+      requestedAmount,
+      annualInterestRate,
+      termMonths,
+    }) => {
+      const result =
+        await prequalifyCredit({
+          userId,
+          requestedAmount,
+          annualInterestRate,
+          termMonths,
+        });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    }
   );
 
   return server;
