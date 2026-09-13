@@ -55,6 +55,7 @@ Allowed values:
 FIRST_HOME
 CAR_PURCHASE
 SAVINGS_GOAL
+CREDIT_OPTIONS
 MARRIAGE
 CHILD
 EDUCATION
@@ -85,7 +86,7 @@ Return ONLY one value.
 
   const sessionId = await this.ensureSession(data.userId, data.sessionId, intent);
   const availableMonthlyCash = Number(dashboard.availableMonthlyCash);
-  const mortgageProducts = intent === 'FIRST_HOME' ? await this.getMortgageProductsTool() : [];
+  const mortgageProducts = intent === 'FIRST_HOME' || intent === 'CREDIT_OPTIONS' ? await this.getMortgageProductsTool() : [];
   if (intent === 'SAVINGS_GOAL') {
     return {
       sessionId,
@@ -109,6 +110,9 @@ Return ONLY one value.
         }]
       }
     };
+  }
+  if (intent === 'CREDIT_OPTIONS') {
+    return { sessionId, message: 'Estas son las opciones disponibles para explorar con tu contexto actual.', intent, ui: { version: '1.0', screen: { title: 'Opciones de crédito' }, components: [...this.dashboardComponents(dashboard), { id: 'credit-options-1', type: 'credit-options', title: 'Opciones de crédito para explorar', props: { products: mortgageProducts.map((product, index) => ({ id: product.id, name: product.name, annualRate: product.interestRate, cat: product.cat, maxTermMonths: product.maximumTermMonths, description: product.description, highlighted: index === 0 })) } }] } };
   }
   if (intent !== 'FIRST_HOME') {
     return { sessionId, message: 'Ya tengo tu panorama financiero. Aquí puedes seguir tu flujo y tus metas.', intent, ui: { version: '1.0', screen: { title: 'Tu panorama financiero' }, components: this.dashboardComponents(dashboard) } };
@@ -246,6 +250,10 @@ Return ONLY one value.
 
     if (/(ahorr|ahorro|fondo|guardar dinero|crear (una )?meta)/.test(normalizedMessage)) {
       return 'SAVINGS_GOAL';
+    }
+
+    if (/(cr[eé]dito|pr[eé]stamo|financiamiento|financiar)/.test(normalizedMessage)) {
+      return 'CREDIT_OPTIONS';
     }
 
     if (/(auto|coche|carro|vehículo|vehiculo)/.test(normalizedMessage)) {
