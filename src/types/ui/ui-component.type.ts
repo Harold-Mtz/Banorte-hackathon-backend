@@ -14,6 +14,9 @@ export interface UIComponent {
   id: string;
   type: UIComponentType;
 
+  title?: string;
+  description?: string;
+
   props: Record<string, unknown>;
 
   actions?: UIAction[];
