@@ -13,6 +13,23 @@ VALUES (
     'Ana Martínez',
     'ana.martinez@demo.com',
     '$2b$12$2jPMnubdEUPuEg2pu9gkZO9.aVrArIDQR1kpPGopVcDxSgkcZ8UjW'
+
+)
+ON CONFLICT (email) DO UPDATE
+SET password_hash = EXCLUDED.password_hash;
+
+INSERT INTO users (
+    id,
+    name,
+    email,
+    password_hash
+)
+VALUES (
+    '22222222-2222-2222-2222-222222222221',
+    'JUANPEDRO Martínez',
+    'juanpedro.martinez@demo.com',
+    '$2b$12$2jPMnubdEUPuEg2pu9gkZO9.aVrArIDQR1kpPGopVcDxSgkcZ8UjK'
+
 )
 ON CONFLICT (email) DO UPDATE
 SET password_hash = EXCLUDED.password_hash;
@@ -38,6 +55,28 @@ VALUES (
     4000.00,
     735
 )
+
+
+ON CONFLICT (user_id) DO NOTHING;
+
+INSERT INTO financial_profiles (
+    user_id,
+    monthly_income,
+    monthly_expenses,
+    current_savings,
+    current_debt,
+    credit_score
+)
+VALUES (
+    '22222222-2222-2222-2222-222222222221',
+    350000.00,
+    1200.00,
+    18000000.00,
+    400000.00,
+    735
+)
+
+
 ON CONFLICT (user_id) DO NOTHING;
 
 
@@ -136,3 +175,8 @@ VALUES (
         "expectedDownPayment": 180000
     }'::jsonb
 );
+
+-- ============================================================
+-- GOALS
+-- ============================================================
+

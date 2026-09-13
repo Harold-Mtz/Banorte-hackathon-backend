@@ -13,6 +13,7 @@ import agentRoutes from "./routes/agent.routes";
 import testAiRoutes from "./routes/test-ai.routes";
 import authRoutes from "./routes/auth.routes";
 import { handleMcpRequest } from "./mcp/http";
+import notificationRoutes from "./routes/notification.routes";
 
 const app = express();
 
@@ -41,5 +42,6 @@ app.use("/api/mortgage", mortgageRoutes);
 app.use("/api/users/:userId", userMortgageRouter);
 app.use("/api/agent", agentRoutes);
 app.use("/api/test-ai", testAiRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 export default app;
