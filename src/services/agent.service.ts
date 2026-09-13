@@ -17,10 +17,13 @@ export class AgentService implements IAgentService {
   data: AgentRequestDTO
 ): Promise<AgentResponse> {
 
-  const intentResponse = await this.llm.generate([
-    {
-      role: 'system',
-      content: `
+  let intent = 'UNKNOWN';
+
+  try {
+    const intentResponse = await this.llm.generate([
+      {
+        role: 'system',
+        content: `
 You are an intent classifier for a banking application.
 
 Allowed values:
@@ -34,15 +37,19 @@ TRAVEL
 UNKNOWN
 
 Return ONLY one value.
-      `
-    },
-    {
-      role: 'user',
-      content: data.message
-    }
-  ]);
+        `
+      },
+      {
+        role: 'user',
+        content: data.message
+      }
+    ]);
 
-  const intent = intentResponse.trim();
+    intent = intentResponse.trim().toUpperCase();
+  } catch (error) {
+    console.error('LLM intent classification failed:', error);
+    intent = this.classifyIntentLocally(data.message);
+  }
 
   const financialProfile =
     await this.financialService.getProfile(
@@ -128,4 +135,34 @@ Return ONLY one value.
     }
   };
 }
+
+  private classifyIntentLocally(message: string): string {
+    const normalizedMessage = message.toLowerCase();
+
+    if (/(auto|coche|carro|vehículo|vehiculo)/.test(normalizedMessage)) {
+      return 'CAR_PURCHASE';
+    }
+
+    if (/(casa|vivienda|hipoteca|hogar)/.test(normalizedMessage)) {
+      return 'FIRST_HOME';
+    }
+
+    if (/(boda|casarme|matrimonio)/.test(normalizedMessage)) {
+      return 'MARRIAGE';
+    }
+
+    if (/(hijo|bebé|bebe|niño|nino)/.test(normalizedMessage)) {
+      return 'CHILD';
+    }
+
+    if (/(estudi|universidad|educación|educacion)/.test(normalizedMessage)) {
+      return 'EDUCATION';
+    }
+
+    if (/(viaje|viajar|vacaciones)/.test(normalizedMessage)) {
+      return 'TRAVEL';
+    }
+
+    return 'UNKNOWN';
+  }
 }

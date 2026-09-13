@@ -42,7 +42,7 @@ export class AgentController {
       return res.status(500).json(
         errorResponse(
           'AGENT_PROCESS_ERROR',
-          'Unable to process agent request'
+          'Unable to process agent request. Check the agent dependencies.'
         )
       );
     }
