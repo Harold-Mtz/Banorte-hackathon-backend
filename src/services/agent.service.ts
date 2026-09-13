@@ -10,6 +10,9 @@ import { SavingsGoalService } from './savings-goal.service';
 import { createGetFinancialProfileTool } from '../mcp/tools/get-financial-profile.tool';
 import { createGetMortgageProductsTool } from '../mcp/tools/get-mortgage-products.tool';
 import { FinancialProductService } from './financial-product.service';
+import { FinancialMovementService } from './financial-movement.service';
+import { createGetFinancialDashboardTool } from '../mcp/tools/get-financial-dashboard.tool';
+import { createRecordFinancialMovementTool } from '../mcp/tools/record-financial-movement.tool';
 
 export class AgentService implements IAgentService {
 
@@ -18,14 +21,19 @@ export class AgentService implements IAgentService {
     private readonly llm: LLMClient,
     private readonly sessionRepository: AgentSessionRepository,
     private readonly savingsGoalService: SavingsGoalService,
-    financialProductService: FinancialProductService
+    financialProductService: FinancialProductService,
+    financialMovementService: FinancialMovementService
   ) {
     this.getFinancialProfileTool = createGetFinancialProfileTool(financialService);
     this.getMortgageProductsTool = createGetMortgageProductsTool(financialProductService);
+    this.getFinancialDashboardTool = createGetFinancialDashboardTool(financialMovementService);
+    this.recordFinancialMovementTool = createRecordFinancialMovementTool(financialMovementService);
   }
 
   private readonly getFinancialProfileTool: ReturnType<typeof createGetFinancialProfileTool>;
   private readonly getMortgageProductsTool: ReturnType<typeof createGetMortgageProductsTool>;
+  private readonly getFinancialDashboardTool: ReturnType<typeof createGetFinancialDashboardTool>;
+  private readonly recordFinancialMovementTool: ReturnType<typeof createRecordFinancialMovementTool>;
 
   
   async processMessage(
@@ -72,10 +80,11 @@ Return ONLY one value.
     intent = this.classifyIntentLocally(data.message);
   }
 
+  const dashboard = await this.getFinancialDashboardTool({ userId: data.userId });
   const financialProfile = await this.getFinancialProfileTool({ userId: data.userId });
 
   const sessionId = await this.ensureSession(data.userId, data.sessionId, intent);
-  const availableMonthlyCash = financialProfile.monthlyIncome - financialProfile.monthlyExpenses - financialProfile.currentDebt;
+  const availableMonthlyCash = Number(dashboard.availableMonthlyCash);
   const mortgageProducts = intent === 'FIRST_HOME' ? await this.getMortgageProductsTool() : [];
   if (intent === 'SAVINGS_GOAL') {
     return {
@@ -85,7 +94,7 @@ Return ONLY one value.
       ui: {
         version: '1.0',
         screen: { title: 'Tu meta de ahorro', subtitle: 'Convierte una intención en un plan claro' },
-        components: [{
+        components: [...this.dashboardComponents(dashboard), {
           id: 'savings-goal-1',
           type: 'savings-goal-form',
           title: 'Dale forma a tu meta',
@@ -102,7 +111,7 @@ Return ONLY one value.
     };
   }
   if (intent !== 'FIRST_HOME') {
-    return { sessionId, message: 'Ya tengo tu panorama financiero. Cuéntame si quieres convertirlo en una meta concreta.', intent, ui: { version: '1.0', screen: { title: 'Tu panorama financiero' }, components: [{ id: 'financial-summary-1', type: 'financial-summary', title: 'Tu panorama financiero', props: { monthlyIncome: financialProfile.monthlyIncome, monthlyExpenses: financialProfile.monthlyExpenses, currentSavings: financialProfile.currentSavings, currentDebt: financialProfile.currentDebt, availableMonthlyCash } }] } };
+    return { sessionId, message: 'Ya tengo tu panorama financiero. Aquí puedes seguir tu flujo y tus metas.', intent, ui: { version: '1.0', screen: { title: 'Tu panorama financiero' }, components: this.dashboardComponents(dashboard) } };
   }
   const propertyValue = Math.max(1000000, Math.round(availableMonthlyCash * 120));
   const downPayment = Math.min(financialProfile.currentSavings, Math.round(propertyValue * 0.4));
@@ -129,6 +138,7 @@ Return ONLY one value.
       },
 
       components: [
+        ...this.dashboardComponents(dashboard),
         {
           id: 'financial-summary-1',
 
@@ -184,6 +194,16 @@ Return ONLY one value.
   };
 }
 
+  private dashboardComponents(dashboard: Record<string, unknown>) {
+    const goals = Array.isArray(dashboard.goals) ? dashboard.goals : [];
+    const movements = Array.isArray(dashboard.movements) ? dashboard.movements : [];
+    return [
+      { id: 'financial-dashboard-1', type: 'financial-dashboard' as const, title: 'Tu tablero financiero', props: dashboard },
+      { id: 'goal-dashboard-1', type: 'goal-dashboard' as const, title: 'Tus metas en marcha', props: { goals } },
+      { id: 'activity-list-1', type: 'activity-list' as const, title: 'Actividad reciente', props: { movements } }
+    ];
+  }
+
   async processInteraction(
     data: AgentInteractionDTO & { userId: string }
   ): Promise<AgentResponse> {
@@ -195,6 +215,13 @@ Return ONLY one value.
       const downPayment = Number(data.payload?.downPayment) || 0;
       const termMonths = Number(data.payload?.termMonths) || 240;
       return { sessionId: session.id, intent: session.currentIntent ?? 'FIRST_HOME', message: 'Actualicé tu escenario con los valores que elegiste.', ui: { version: '1.0', screen: { title: 'Tu primera casa', subtitle: 'Explora tu situación financiera y simula opciones' }, components: [{ id: data.componentId, type: 'mortgage-simulator', title: 'Simula tu mensualidad', props: { propertyValue, downPayment, termMonths, estimatedMonthlyPayment: Math.round((propertyValue - downPayment) * 0.0101) } }] } };
+    }
+
+    if (data.action === 'RECORD_FINANCIAL_MOVEMENT' || data.action === 'CONFIRM_RECORD_FINANCIAL_MOVEMENT') {
+      const result = await this.recordFinancialMovementTool({ userId: data.userId, goalId: typeof data.payload?.goalId === 'string' ? data.payload.goalId : undefined, type: data.payload?.type as 'DEPOSIT' | 'WITHDRAWAL' | 'EXPENSE' | 'INCOME', amount: Number(data.payload?.amount), category: typeof data.payload?.category === 'string' ? data.payload.category : undefined, note: typeof data.payload?.note === 'string' ? data.payload.note : undefined, confirm: data.action === 'CONFIRM_RECORD_FINANCIAL_MOVEMENT' });
+      const dashboard = await this.getFinancialDashboardTool({ userId: data.userId });
+      const impactComponent = result.impact.warning && data.action === 'RECORD_FINANCIAL_MOVEMENT' ? [{ id: 'cashflow-alert-1', type: 'cashflow-alert' as const, title: 'Revisa el impacto de este movimiento', props: { ...result.impact, pendingPayload: data.payload } }] : [];
+      return { sessionId: session.id, intent: session.currentIntent ?? 'GENERAL', message: data.action === 'RECORD_FINANCIAL_MOVEMENT' && result.impact.warning ? String(result.impact.warning) : 'Movimiento registrado y tablero actualizado.', ui: { version: '1.0', screen: { title: 'Tu tablero financiero' }, components: [...this.dashboardComponents(dashboard), ...impactComponent] } };
     }
 
     if (data.action === 'REQUEST_CREATE_SAVINGS_GOAL') return { sessionId: session.id, intent: 'SAVINGS_GOAL', message: 'Tu plan está listo para confirmarse.', ui: { version: '1.0', screen: { title: 'Tu meta de ahorro' }, components: [{ id: 'confirmation-1', type: 'confirmation', title: '¿Guardamos esta meta?', props: { message: 'Revisa tu meta y confirma para continuar.', confirmLabel: 'Sí, crear meta', cancelLabel: 'Ajustar plan', ...data.payload } }] } };
@@ -217,7 +244,7 @@ Return ONLY one value.
   private classifyIntentLocally(message: string): string {
     const normalizedMessage = message.toLowerCase();
 
-    if (/(ahorr|ahorro|meta|fondo|guardar dinero)/.test(normalizedMessage)) {
+    if (/(ahorr|ahorro|fondo|guardar dinero|crear (una )?meta)/.test(normalizedMessage)) {
       return 'SAVINGS_GOAL';
     }
 

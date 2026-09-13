@@ -9,6 +9,8 @@ import { SavingsGoalRepository } from '../repositories/savings-goal.repository';
 import { SavingsGoalService } from '../services/savings-goal.service';
 import { FinancialProductRepository } from '../repositories/financial-product.repository';
 import { FinancialProductService } from '../services/financial-product.service';
+import { FinancialMovementRepository } from '../repositories/financial-movement.repository';
+import { FinancialMovementService } from '../services/financial-movement.service';
 import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -19,7 +21,8 @@ const geminiClient = new GeminiClient();
 const sessionRepository = new AgentSessionRepository();
 const savingsGoalService = new SavingsGoalService(new SavingsGoalRepository());
 const financialProductService = new FinancialProductService(new FinancialProductRepository());
-const agentService = new AgentService(financialService, geminiClient, sessionRepository, savingsGoalService, financialProductService);
+const financialMovementService = new FinancialMovementService(new FinancialMovementRepository(), financialService, savingsGoalService);
+const agentService = new AgentService(financialService, geminiClient, sessionRepository, savingsGoalService, financialProductService, financialMovementService);
 
 const controller =
   new AgentController(agentService);

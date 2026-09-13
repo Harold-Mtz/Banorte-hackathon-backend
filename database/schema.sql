@@ -206,6 +206,23 @@ CREATE TABLE IF NOT EXISTS savings_goals (
         )
 );
 
+-- financial_movements: auditable deposits, withdrawals, expenses and income
+CREATE TABLE IF NOT EXISTS financial_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    goal_id UUID REFERENCES savings_goals(id) ON DELETE SET NULL,
+    type VARCHAR(20) NOT NULL,
+    amount NUMERIC(14,2) NOT NULL,
+    category VARCHAR(80),
+    note VARCHAR(240),
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_financial_movement_type CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'EXPENSE', 'INCOME')),
+    CONSTRAINT chk_financial_movement_amount CHECK (amount > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_financial_movements_user_date ON financial_movements(user_id, occurred_at DESC);
+
 
 -- mortgage_simulations
 

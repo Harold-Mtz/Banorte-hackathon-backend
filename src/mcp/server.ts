@@ -27,6 +27,10 @@ import { MortgageSimulationRepository } from "../repositories/mortgage-simulatio
 import { MortgageService } from "../services/mortgage.service";
 import { SavingsGoalRepository } from "../repositories/savings-goal.repository";
 import { SavingsGoalService } from "../services/savings-goal.service";
+import { FinancialMovementRepository } from "../repositories/financial-movement.repository";
+import { FinancialMovementService } from "../services/financial-movement.service";
+import { createGetFinancialDashboardTool, getFinancialDashboardInputSchema } from "./tools/get-financial-dashboard.tool";
+import { createRecordFinancialMovementTool, recordFinancialMovementInputSchema } from "./tools/record-financial-movement.tool";
 const refinancingService = new RefinancingService();
 
 const analyzeRefinancing = createAnalyzeRefinancingTool(refinancingService);
@@ -44,6 +48,7 @@ export const createMcpServer = () => {
   const financialProductService = new FinancialProductService(new FinancialProductRepository());
   const mortgageService = new MortgageService(new MortgageSimulationRepository(), new FinancialProductRepository(), financialService);
   const savingsGoalService = new SavingsGoalService(new SavingsGoalRepository());
+  const financialMovementService = new FinancialMovementService(new FinancialMovementRepository(), financialService, savingsGoalService);
 
   const getFinancialProfile = createGetFinancialProfileTool(financialService);
   const generateAmortizationSchedule =
@@ -51,12 +56,16 @@ export const createMcpServer = () => {
   const getMortgageProducts = createGetMortgageProductsTool(financialProductService);
   const simulateMortgage = createSimulateMortgageTool(mortgageService);
   const createSavingsGoal = createSavingsGoalTool(savingsGoalService);
+  const getFinancialDashboard = createGetFinancialDashboardTool(financialMovementService);
+  const recordFinancialMovement = createRecordFinancialMovementTool(financialMovementService);
 
   server.tool("getFinancialProfile", "Gets the authenticated user's financial profile.", getFinancialProfileInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await getFinancialProfile(input)) }] }));
   server.tool("getMortgageProducts", "Gets available mortgage products.", getMortgageProductsInputSchema.shape, async () => ({ content: [{ type: "text", text: JSON.stringify(await getMortgageProducts()) }] }));
   server.tool("simulateMortgage", "Creates a mortgage simulation from user and selected values.", simulateMortgageInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await simulateMortgage(input)) }] }));
   server.tool("generateAmortizationSchedule", "Generates an amortization schedule.", generateAmortizationScheduleInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await generateAmortizationSchedule(input)) }] }));
   server.tool("createSavingsGoal", "Creates a confirmed savings goal.", createSavingsGoalInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await createSavingsGoal(input)) }] }));
+  server.tool("getFinancialDashboard", "Gets a live financial dashboard for a user.", getFinancialDashboardInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await getFinancialDashboard(input)) }] }));
+  server.tool("recordFinancialMovement", "Records a deposit, withdrawal, expense or income and returns its impact.", recordFinancialMovementInputSchema.shape, async (input) => ({ content: [{ type: "text", text: JSON.stringify(await recordFinancialMovement(input)) }] }));
 
   server.tool(
     "analyzeRefinancing",
