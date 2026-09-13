@@ -76,7 +76,7 @@ test("registration, login, profile, adaptive simulation, confirmation and recove
   assert.equal(
     (await call(`/financial-profiles/${session.user.id}/financial-summary`))
       .data.availableIncome,
-    42000,
+    44000,
   );
   result = await call("/agent/message", "POST", {
     userId: session.user.id,

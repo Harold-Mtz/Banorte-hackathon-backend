@@ -55,3 +55,7 @@ Para crear una base nueva aplica `database/schema.sql` con tu herramienta Postgr
 ## Límites del MVP
 
 Las confirmaciones no son operaciones bancarias reales. Los importes hipotecarios son simulaciones informativas. Un fallo de proceso entre guardar un resultado y guardar su UI puede requerir consultar el historial antes de reintentar; no se ofrece garantía transaccional distribuida entre MCP, auditoría y UI. Para una producción bancaria se necesita endurecimiento operativo adicional, incluidos rate limits y auditoría transaccional.
+
+## Semántica del margen mensual
+
+`currentDebt` es deuda acumulada. `getAvailableIncome` y `financial-summary.availableIncome` calculan ahora **monthlyIncome − monthlyExpenses**; no descuentan el saldo de deuda completo cada mes. Esto también actualiza la base de la estimación orientativa de capacidad del servicio hipotecario. No se conocen obligaciones mensuales de deuda por separado. Los contratos no cambian y no se requiere migración SQL. Para aplicar esta corrección al servidor publicado, despliega la nueva revisión del backend.

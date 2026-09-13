@@ -36,6 +36,7 @@ export class FinancialService implements IFinancialService {
     return updated;
   }
 
+  // currentDebt is an outstanding balance, not a recurring monthly payment.
   async getAvailableIncome(
     userId: string
   ): Promise<number> {
@@ -47,8 +48,7 @@ export class FinancialService implements IFinancialService {
 
     return (
       profile.monthlyIncome -
-      profile.monthlyExpenses -
-      profile.currentDebt
+      profile.monthlyExpenses
     );
   }
 
@@ -63,8 +63,7 @@ export class FinancialService implements IFinancialService {
 
   const availableIncome =
     profile.monthlyIncome -
-    profile.monthlyExpenses -
-    profile.currentDebt;
+    profile.monthlyExpenses;
 
   return {
     monthlyIncome: profile.monthlyIncome,
