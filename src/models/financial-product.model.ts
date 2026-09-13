@@ -1,5 +1,6 @@
 export type FinancialProductType = 
 | 'MORTAGE'
+| 'MORTGAGE'
 | 'AUTO_LOAN'
 | 'PERSONAL_LOAN'
 | 'SAVINGS'
@@ -11,7 +12,7 @@ export interface FinancialProduct {
     type: FinancialProductType;
     description: string | null;
     interestRate: number | null;
-    cat: number;
+    cat: number | null;
     minimumAmount: number | null;
     maximumAmount: number | null;
     minimumTermMonths: number | null;

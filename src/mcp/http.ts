@@ -11,7 +11,7 @@ export const handleMcpRequest = async (req: Request, res: Response) => {
       enableJsonResponse: true,
     });
 
-    const server = createMcpServer();
+    const server = createMcpServer(req.authUserId);
 
     res.on("close", async () => {
       await transport.close();

@@ -1,10 +1,11 @@
+import { idSchema } from '../../domain/validation';
 import { z } from "zod";
 import { ISavingsGoalService } from "../../interfaces/savings-goal.interface";
 
 export const createSavingsGoalInputSchema = z.object({
-  userId: z.string().uuid(),
+  userId: idSchema,
 
-  lifeEventId: z.string().uuid().optional(),
+  lifeEventId: idSchema.optional(),
 
   name: z.string().min(1),
 
@@ -25,6 +26,7 @@ export const createSavingsGoalTool = (
   savingsGoalService: ISavingsGoalService,
 ) => {
   return async (input: CreateSavingsGoalInput) => {
+    input = createSavingsGoalInputSchema.parse(input);
     const goal = await savingsGoalService.create({
       userId: input.userId,
       lifeEventId: input.lifeEventId,

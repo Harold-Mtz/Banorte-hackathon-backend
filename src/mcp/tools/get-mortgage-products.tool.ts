@@ -13,7 +13,7 @@ export const createGetMortgageProductsTool = (
     const products =
       await financialProductService.getByType('MORTGAGE');
 
-    return products.map(product => ({
+    return products.filter(product => product.isActive).map(product => ({
       id: product.id,
       name: product.name,
       type: product.type,

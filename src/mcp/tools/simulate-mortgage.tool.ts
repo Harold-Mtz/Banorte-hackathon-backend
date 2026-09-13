@@ -1,10 +1,11 @@
+import { idSchema } from '../../domain/validation';
 import { z } from 'zod';
 import { IMortgageService } from '../../interfaces/mortgage-service.interface';
 
 export const simulateMortgageInputSchema = z.object({
-  userId: z.string().uuid(),
-  lifeEventId: z.string().uuid().optional(),
-  financialProductId: z.string().uuid().optional(),
+  userId: idSchema,
+  lifeEventId: idSchema.optional(),
+  financialProductId: idSchema.optional(),
 
   propertyValue: z.number().positive(),
   downPayment: z.number().nonnegative(),
@@ -18,6 +19,7 @@ export const createSimulateMortgageTool = (
   mortgageService: IMortgageService
 ) => {
   return async (input: SimulateMortgageInput) => {
+    input = simulateMortgageInputSchema.parse(input);
     const simulation =
       await mortgageService.simulate({
         userId: input.userId,

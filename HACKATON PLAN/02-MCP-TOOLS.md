@@ -6,4 +6,21 @@ Tools actuales: perfil financiero, productos hipotecarios, simulación hipotecar
 
 Tools prioritarias nuevas: `getFinancialDashboard`, `listFinancialMovements`, `recordFinancialMovement`, `getGoalImpact`.
 
+Tools necesarias para gestión completa de metas:
+
+- `listSavingsGoals`
+- `getSavingsGoal`
+- `createSavingsGoal`
+- `updateSavingsGoal`
+- `pauseSavingsGoal`
+- `resumeSavingsGoal`
+- `cancelSavingsGoal`
+- `archiveSavingsGoal`
+- `deleteSavingsGoal` como eliminación lógica
+- `previewGoalImpact`
+
+Una meta puede representar cualquier objetivo financiero: mascota, celular, computadora, viaje, mudanza, salud, educación, boda, negocio o fondo de emergencia. No asumir que toda meta es hipotecaria.
+
+Cada tool de meta debe validar ownership, conservar historial y devolver el estado actualizado suficiente para reconstruir dashboard, selector, progreso y actividad.
+
 Una tool no debe renderizar UI ni devolver JSX. Devuelve datos; el AgentService compone `AdaptiveUIResponse`.

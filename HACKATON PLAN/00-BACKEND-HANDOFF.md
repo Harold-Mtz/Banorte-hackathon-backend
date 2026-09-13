@@ -17,3 +17,9 @@ Registrar tools en `src/mcp/server.ts` y reutilizar sus funciones de dominio. Ca
 ## Cambios nuevos esperados
 
 Agregar movimientos financieros y consulta agregada de dashboard; no romper metas, hipotecas, sesiones ni UI state. El agente debe componer `AdaptiveUIResponse` usando datos reales y no valores de demo.
+
+## Objetivos no especializados
+
+No limites la clasificación a casa, auto y ahorro. Un usuario puede querer un perro, un celular, una mudanza, un viaje, salud, educación, una boda o un negocio. Usa una categoría `GENERAL_GOAL` con metadata de categoría, checklist y próximos pasos.
+
+El ciclo de vida mínimo de una meta es: seleccionar, crear, editar, pausar, reactivar, cancelar, archivar, eliminar lógicamente, aportar, retirar y consultar impacto. La eliminación lógica conserva movimientos y auditoría.
