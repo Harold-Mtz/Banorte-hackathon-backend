@@ -19,7 +19,8 @@ export class AgentController {
     res: Response
   ) => {
     try {
-      const { userId, message } = req.body;
+      const userId = req.authUserId ?? req.body.userId;
+      const { message } = req.body;
 
       if (!userId || !message) {
         return res.status(400).json(
@@ -30,8 +31,7 @@ export class AgentController {
         );
       }
 
-      const response =
-        await this.service.processMessage(req.body);
+      const response = await this.service.processMessage({ ...req.body, userId });
 
       return res.status(200).json(
         successResponse(response)
@@ -54,11 +54,12 @@ export class AgentController {
     res: Response
   ) => {
     try {
-      const { userId, sessionId, componentId, action } = req.body;
+      const userId = req.authUserId ?? req.body.userId;
+      const { sessionId, componentId, action } = req.body;
       if (!userId || !sessionId || !componentId || !action) {
         return res.status(400).json(errorResponse('INVALID_AGENT_INTERACTION', 'userId, sessionId, componentId and action are required'));
       }
-      const response = await this.service.processInteraction(req.body);
+      const response = await this.service.processInteraction({ ...req.body, userId });
       return res.status(200).json(successResponse(response));
     } catch (error) {
       console.error(error);

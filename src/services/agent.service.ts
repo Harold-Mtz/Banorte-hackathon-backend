@@ -7,6 +7,9 @@ import { LLMClient } from '../ai/llm-client.interface';
 import { AgentSessionRepository } from '../repositories/agent-session.repository';
 import { AgentInteractionDTO } from '../dtos/agent-interaction.dto';
 import { SavingsGoalService } from './savings-goal.service';
+import { createGetFinancialProfileTool } from '../mcp/tools/get-financial-profile.tool';
+import { createGetMortgageProductsTool } from '../mcp/tools/get-mortgage-products.tool';
+import { FinancialProductService } from './financial-product.service';
 
 export class AgentService implements IAgentService {
 
@@ -14,8 +17,15 @@ export class AgentService implements IAgentService {
     private readonly financialService: IFinancialService,
     private readonly llm: LLMClient,
     private readonly sessionRepository: AgentSessionRepository,
-    private readonly savingsGoalService: SavingsGoalService
-  ) {}
+    private readonly savingsGoalService: SavingsGoalService,
+    financialProductService: FinancialProductService
+  ) {
+    this.getFinancialProfileTool = createGetFinancialProfileTool(financialService);
+    this.getMortgageProductsTool = createGetMortgageProductsTool(financialProductService);
+  }
+
+  private readonly getFinancialProfileTool: ReturnType<typeof createGetFinancialProfileTool>;
+  private readonly getMortgageProductsTool: ReturnType<typeof createGetMortgageProductsTool>;
 
   
   async processMessage(
@@ -23,6 +33,7 @@ export class AgentService implements IAgentService {
 ): Promise<AgentResponse> {
 
   let intent = 'UNKNOWN';
+  const localIntent = this.classifyIntentLocally(data.message);
 
   try {
     const intentResponse = await this.llm.generate([
@@ -52,27 +63,20 @@ Return ONLY one value.
     ]);
 
         intent = intentResponse.trim().toUpperCase();
+        if (localIntent === 'SAVINGS_GOAL') intent = localIntent;
         if (intent === 'UNKNOWN') {
-          intent = this.classifyIntentLocally(data.message);
+          intent = localIntent;
         }
   } catch (error) {
     console.error('LLM intent classification failed:', error);
     intent = this.classifyIntentLocally(data.message);
   }
 
-  const financialProfile =
-    await this.financialService.getProfile(
-      data.userId
-    );
-
-  if (!financialProfile) {
-    throw new Error(
-      'Financial profile not found'
-    );
-  }
+  const financialProfile = await this.getFinancialProfileTool({ userId: data.userId });
 
   const sessionId = await this.ensureSession(data.userId, data.sessionId, intent);
   const availableMonthlyCash = financialProfile.monthlyIncome - financialProfile.monthlyExpenses - financialProfile.currentDebt;
+  const mortgageProducts = intent === 'FIRST_HOME' ? await this.getMortgageProductsTool() : [];
   if (intent === 'SAVINGS_GOAL') {
     return {
       sessionId,
@@ -96,6 +100,9 @@ Return ONLY one value.
         }]
       }
     };
+  }
+  if (intent !== 'FIRST_HOME') {
+    return { sessionId, message: 'Ya tengo tu panorama financiero. Cuéntame si quieres convertirlo en una meta concreta.', intent, ui: { version: '1.0', screen: { title: 'Tu panorama financiero' }, components: [{ id: 'financial-summary-1', type: 'financial-summary', title: 'Tu panorama financiero', props: { monthlyIncome: financialProfile.monthlyIncome, monthlyExpenses: financialProfile.monthlyExpenses, currentSavings: financialProfile.currentSavings, currentDebt: financialProfile.currentDebt, availableMonthlyCash } }] } };
   }
   const propertyValue = Math.max(1000000, Math.round(availableMonthlyCash * 120));
   const downPayment = Math.min(financialProfile.currentSavings, Math.round(propertyValue * 0.4));
@@ -136,11 +143,9 @@ Return ONLY one value.
             monthlyExpenses:
               financialProfile.monthlyExpenses,
 
-            currentSavings:
-              financialProfile.currentSavings,
-
-            currentDebt:
-              financialProfile.currentDebt
+            currentSavings: financialProfile.currentSavings,
+            currentDebt: financialProfile.currentDebt,
+            availableMonthlyCash
           }
         },
 
@@ -172,7 +177,8 @@ Return ONLY one value.
                 'Actualizar simulación'
             }
           ]
-        }
+        },
+        ...mortgageProducts.map((product, index) => ({ id: `mortgage-product-${index}`, type: 'product-comparison' as const, title: 'Opciones hipotecarias disponibles', props: { products: [{ id: product.id, name: product.name, annualRate: product.interestRate, cat: product.cat, maxTermMonths: product.maximumTermMonths, description: product.description, highlighted: index === 0 }] } }))
       ]
     }
   };
