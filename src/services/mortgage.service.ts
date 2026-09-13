@@ -4,53 +4,174 @@ import { FinancialProductRepository } from "../repositories/financial-product.re
 import { CreateMortgageSimulationDTO } from "../dtos/create-mortgage-simulation.dto";
 import { MortgageSimulation } from "../models/mortgage-simulation.model";
 
+const MAX_MORTGAGE_PAYMENT_RATIO = 0.3;
+
 function calculateMortgage(
   loanAmount: number,
   annualInterestRate: number,
   termMonths: number,
 ) {
   if (annualInterestRate === 0) {
-    const monthlyPayment = loanAmount / termMonths;
-    return { monthlyPayment, totalPayment: loanAmount, totalInterest: 0 };
+    const monthlyPayment =
+      loanAmount / termMonths;
+
+    return {
+      monthlyPayment,
+      totalPayment: loanAmount,
+      totalInterest: 0,
+    };
   }
 
-  const r = annualInterestRate / 12;
-  const factor = Math.pow(1 + r, termMonths);
+  const monthlyRate =
+    annualInterestRate / 100 / 12;
 
-  const monthlyPayment = (loanAmount * (r * factor)) / (factor - 1);
-  const totalPayment = monthlyPayment * termMonths;
-  const totalInterest = totalPayment - loanAmount;
+  const factor =
+    Math.pow(
+      1 + monthlyRate,
+      termMonths,
+    );
 
-  return { monthlyPayment, totalPayment, totalInterest };
+  const monthlyPayment =
+    (
+      loanAmount *
+      (monthlyRate * factor)
+    ) /
+    (factor - 1);
+
+  const totalPayment =
+    monthlyPayment * termMonths;
+
+  const totalInterest =
+    totalPayment - loanAmount;
+
+  return {
+    monthlyPayment,
+    totalPayment,
+    totalInterest,
+  };
 }
 
-export class MortgageService implements IMortgageService {
+export class MortgageService
+  implements IMortgageService
+{
   constructor(
-    private readonly repository: MortgageSimulationRepository,
-    private readonly productRepository: FinancialProductRepository,
+    private readonly repository:
+      MortgageSimulationRepository,
+
+    private readonly productRepository:
+      FinancialProductRepository,
 
     private readonly financialService: {
-      getAvailableIncome(userId: string): Promise<number>;
+      getAvailableIncome(
+        userId: string,
+      ): Promise<number>;
     },
   ) {}
 
   async simulate(
     data: CreateMortgageSimulationDTO,
   ): Promise<MortgageSimulation> {
-    const loanAmount = data.propertyValue - data.downPayment;
-
-    let interestRate = 0.1;
-    if (data.financialProductId) {
-      const product = await this.productRepository.findById(
-        data.financialProductId,
+    if (![data.propertyValue, data.downPayment, data.termMonths].every(Number.isFinite) || !Number.isInteger(data.termMonths)) throw new Error('Los montos y el plazo deben ser números válidos.');
+    if (data.propertyValue <= 0) {
+      throw new Error(
+        "Property value must be greater than zero",
       );
-      if (!product) {
-        throw new Error("Financial product not found");
-      }
-      interestRate = product.interestRate ?? interestRate;
     }
 
-    const { monthlyPayment, totalPayment, totalInterest } = calculateMortgage(
+    if (
+      data.downPayment < 0 ||
+      data.downPayment >= data.propertyValue
+    ) {
+      throw new Error(
+        "Down payment must be greater than or equal to zero and lower than property value",
+      );
+    }
+
+    if (data.termMonths <= 0) {
+      throw new Error(
+        "Term months must be greater than zero",
+      );
+    }
+
+    const product =
+      await this.productRepository.findById(
+        data.financialProductId,
+      );
+
+    if (!product) {
+      throw new Error(
+        "Financial product not found",
+      );
+    }
+
+    if (!product.isActive) {
+      throw new Error(
+        "Financial product is not active",
+      );
+    }
+
+    if (product.type !== "MORTGAGE") {
+      throw new Error(
+        "Financial product is not a mortgage",
+      );
+    }
+
+    if (product.interestRate === null) {
+      throw new Error(
+        "Financial product has no interest rate",
+      );
+    }
+
+    const loanAmount =
+      data.propertyValue -
+      data.downPayment;
+
+    if (
+      product.minimumAmount !== null &&
+      loanAmount < product.minimumAmount
+    ) {
+      throw new Error(
+        "Loan amount is below the product minimum",
+      );
+    }
+
+    if (
+      product.maximumAmount !== null &&
+      loanAmount > product.maximumAmount
+    ) {
+      throw new Error(
+        "Loan amount exceeds the product maximum",
+      );
+    }
+
+    if (
+      product.minimumTermMonths !== null &&
+      data.termMonths <
+        product.minimumTermMonths
+    ) {
+      throw new Error(
+        "Term is below the product minimum",
+      );
+    }
+
+    if (
+      product.maximumTermMonths !== null &&
+      data.termMonths >
+        product.maximumTermMonths
+    ) {
+      throw new Error(
+        "Term exceeds the product maximum",
+      );
+    }
+
+    const interestRate =
+      product.interestRate;
+
+    const {
+      monthlyPayment,
+      totalPayment,
+      totalInterest,
+    } = calculateMortgage(
       loanAmount,
       interestRate,
       data.termMonths,
@@ -58,26 +179,51 @@ export class MortgageService implements IMortgageService {
 
     return this.repository.create({
       userId: data.userId,
-      lifeEventId: data.lifeEventId ?? null,
-      financialProductId: data.financialProductId ?? null,
-      propertyValue: data.propertyValue,
-      downPayment: data.downPayment,
+
+      lifeEventId:
+        data.lifeEventId ?? null,
+
+      financialProductId:
+        data.financialProductId,
+
+      propertyValue:
+        data.propertyValue,
+
+      downPayment:
+        data.downPayment,
+
       loanAmount,
-      termMonths: data.termMonths,
-      annualInterestRate: interestRate,
+
+      termMonths:
+        data.termMonths,
+
+      annualInterestRate:
+        interestRate,
+
       monthlyPayment,
       totalPayment,
       totalInterest,
     });
   }
 
-  async calculateCapacity(userId: string): Promise<number> {
+  async calculateCapacity(
+    userId: string,
+  ): Promise<number> {
     const availableIncome =
-      await this.financialService.getAvailableIncome(userId);
-    return availableIncome * 0.3;
+      await this.financialService
+        .getAvailableIncome(userId);
+
+    return (
+      availableIncome *
+      MAX_MORTGAGE_PAYMENT_RATIO
+    );
   }
 
-  async getUserSimulations(userId: string): Promise<MortgageSimulation[]> {
-    return this.repository.findByUserId(userId);
+  async getUserSimulations(
+    userId: string,
+  ): Promise<MortgageSimulation[]> {
+    return this.repository.findByUserId(
+      userId,
+    );
   }
 }

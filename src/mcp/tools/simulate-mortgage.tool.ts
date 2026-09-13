@@ -4,7 +4,7 @@ import { IMortgageService } from '../../interfaces/mortgage-service.interface';
 export const simulateMortgageInputSchema = z.object({
   userId: z.string().uuid(),
   lifeEventId: z.string().uuid().optional(),
-  financialProductId: z.string().uuid().optional(),
+  financialProductId: z.string().uuid(),
 
   propertyValue: z.number().positive(),
   downPayment: z.number().nonnegative(),

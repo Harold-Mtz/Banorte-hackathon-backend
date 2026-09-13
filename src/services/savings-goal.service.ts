@@ -7,6 +7,7 @@ export class SavingsGoalService implements ISavingsGoalService {
   constructor(private readonly repository: SavingsGoalRepository) {}
 
   async create(data: CreateSavingsGoalDTO): Promise<SavingsGoal> {
+    if (!data.name?.trim() || data.name.length > 150 || !Number.isFinite(data.targetAmount) || (data.currentAmount !== undefined && !Number.isFinite(data.currentAmount)) || (data.monthlyContribution !== undefined && (!Number.isFinite(data.monthlyContribution) || data.monthlyContribution < 0)) || (data.targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(data.targetDate))) throw new Error('Revisa el nombre, los montos y la fecha de tu meta.');
     if (data.targetAmount <= 0) {
       throw new Error("Target amount must be greater than zero");
     }
@@ -30,7 +31,7 @@ export class SavingsGoalService implements ISavingsGoalService {
     id: string,
     currentAmount: number,
   ): Promise<SavingsGoal | null> {
-    if (currentAmount < 0) {
+    if (!Number.isFinite(currentAmount) || currentAmount < 0) {
       throw new Error("Current amount cannot be negative");
     }
 

@@ -36,6 +36,11 @@ export class AuthService {
     };
   }
 
+  async register(name: string, email: string, password: string): Promise<LoginResult> {
+    await this.userRepository.create(name, email, await bcrypt.hash(password, 12));
+    return this.login({ email, password });
+  }
+
   async login({ email, password }: LoginDTO): Promise<LoginResult> {
     const user = await this.userRepository.findByEmail(email);
 

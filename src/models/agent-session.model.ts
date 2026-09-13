@@ -1,6 +1,7 @@
 export type AgentSessionStatus =
 | 'ACTIVE'
 | 'COMPLETED'
+| 'EXPIRED'
 | 'CANCELLED';
 
 export interface AgentSession {

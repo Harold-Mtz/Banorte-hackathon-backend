@@ -19,6 +19,11 @@ export class FinancialService implements IFinancialService {
     userId: string,
     data: UpdateFinancialProfileDTO
   ): Promise<FinancialProfile> {
+    for (const key of ['monthlyIncome','monthlyExpenses','currentSavings','currentDebt'] as const) {
+      const value = data[key];
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new Error('INVALID_FINANCIAL_PROFILE');
+    }
+    if (data.creditScore !== undefined && (!Number.isInteger(data.creditScore) || data.creditScore < 300 || data.creditScore > 850)) throw new Error('INVALID_FINANCIAL_PROFILE');
     const updated = await this.repository.updateByUserId(
       userId,
       data

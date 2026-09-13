@@ -14,13 +14,30 @@ import testAiRoutes from "./routes/test-ai.routes";
 import authRoutes from "./routes/auth.routes";
 import { handleMcpRequest } from "./mcp/http";
 
+import { requireAuth } from './middleware/auth';
+
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const allowedOrigins =
+  process.env.FRONTEND_URL
+    ?.split(",")
+    .map(origin => origin.trim());
 
-app.all("/mcp", handleMcpRequest);
+app.use(
+  cors({
+    origin:
+      allowedOrigins?.length
+        ? allowedOrigins
+        : true,
+  }),
+);app.use(express.json());
+
+app.all("/mcp", (req, res, next) => {
+  if (!process.env.MCP_API_KEY || req.headers.authorization !== `Bearer ${process.env.MCP_API_KEY}`) return res.status(401).json({error:'Unauthorized'});
+  next();
+}, handleMcpRequest);
 app.use("/api/auth", authRoutes);
+app.use("/api", requireAuth);
 app.use("/api/users", userRoutes);
 app.use("/api/financial-profiles", financialProfileRoutes);
 app.get("/health", (_req, res) => {
@@ -37,7 +54,6 @@ app.use("/api/agent/interactions", interactionRoutes);
 app.use("/api", uiStateRoutes);
 app.use("/api/financial-products", financialProductRoutes);
 app.use("/api/mortgages", mortgageRoutes);
-app.use("/api/mortgage", mortgageRoutes);
 app.use("/api/users/:userId", userMortgageRouter);
 app.use("/api/agent", agentRoutes);
 app.use("/api/test-ai", testAiRoutes);

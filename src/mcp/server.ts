@@ -1,41 +1,214 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { FinancialProfileRepository } from "../repositories/financial-profile.repository";
+import { FinancialProductRepository } from "../repositories/financial-product.repository";
+import { MortgageSimulationRepository } from "../repositories/mortgage-simulation.repository";
+import { SavingsGoalRepository } from "../repositories/savings-goal.repository";
+
 import { FinancialService } from "../services/financial.service";
+import { FinancialProductService } from "../services/financial-product.service";
+import { MortgageService } from "../services/mortgage.service";
+import { SavingsGoalService } from "../services/savings-goal.service";
 import { AmortizationService } from "../services/amortization.service";
 import { RefinancingService } from "../services/refinancing.service";
 
-import {
-  createAnalyzeRefinancingTool,
-  analyzeRefinancingInputSchema,
-} from "./tools/analyze-refinancing.tool";
 import {
   createGetFinancialProfileTool,
   getFinancialProfileInputSchema,
 } from "./tools/get-financial-profile.tool";
 
 import {
+  createGetMortgageProductsTool,
+  getMortgageProductsInputSchema,
+} from "./tools/get-mortgage-products.tool";
+
+import {
+  createSimulateMortgageTool,
+  simulateMortgageInputSchema,
+} from "./tools/simulate-mortgage.tool";
+
+import {
+  createSavingsGoalTool,
+  createSavingsGoalInputSchema,
+} from "./tools/create-savings-goal-tool";
+
+import {
   createGenerateAmortizationScheduleTool,
   generateAmortizationScheduleInputSchema,
 } from "./tools/generate-amortization-schedule.tool";
-const refinancingService = new RefinancingService();
 
-const analyzeRefinancing = createAnalyzeRefinancingTool(refinancingService);
+import {
+  createAnalyzeRefinancingTool,
+  analyzeRefinancingInputSchema,
+} from "./tools/analyze-refinancing.tool";
+
+const asToolResult = (
+  result: unknown,
+) => ({
+  content: [
+    {
+      type: "text" as const,
+      text: JSON.stringify(result),
+    },
+  ],
+});
 
 export const createMcpServer = () => {
-  const server = new McpServer({
-    name: "banorte-adaptive-life",
-    version: "1.0.0",
-  });
+  const server =
+    new McpServer({
+      name: "banorte-adaptive-life",
+      version: "1.0.0",
+    });
 
-  const repository = new FinancialProfileRepository();
+  /*
+   * Repositories
+   */
+  const financialProfileRepository =
+    new FinancialProfileRepository();
 
-  const financialService = new FinancialService(repository);
-  const amortizationService = new AmortizationService();
+  const financialProductRepository =
+    new FinancialProductRepository();
 
-  const getFinancialProfile = createGetFinancialProfileTool(financialService);
+  const mortgageSimulationRepository =
+    new MortgageSimulationRepository();
+
+  const savingsGoalRepository =
+    new SavingsGoalRepository();
+
+  /*
+   * Services
+   */
+  const financialService =
+    new FinancialService(
+      financialProfileRepository,
+    );
+
+  const financialProductService =
+    new FinancialProductService(
+      financialProductRepository,
+    );
+
+  const mortgageService =
+    new MortgageService(
+      mortgageSimulationRepository,
+      financialProductRepository,
+      financialService,
+    );
+
+  const savingsGoalService =
+    new SavingsGoalService(
+      savingsGoalRepository,
+    );
+
+  const amortizationService =
+    new AmortizationService();
+
+  const refinancingService =
+    new RefinancingService();
+
+  /*
+   * Tools
+   */
+  const getFinancialProfile =
+    createGetFinancialProfileTool(
+      financialService,
+    );
+
+  const getMortgageProducts =
+    createGetMortgageProductsTool(
+      financialProductService,
+    );
+
+  const simulateMortgage =
+    createSimulateMortgageTool(
+      mortgageService,
+    );
+
+  const createSavingsGoal =
+    createSavingsGoalTool(
+      savingsGoalService,
+    );
+
   const generateAmortizationSchedule =
-    createGenerateAmortizationScheduleTool(amortizationService);
+    createGenerateAmortizationScheduleTool(
+      amortizationService,
+    );
+
+  const analyzeRefinancing =
+    createAnalyzeRefinancingTool(
+      refinancingService,
+    );
+
+  /*
+   * MCP registrations
+   */
+
+  server.tool(
+    "getFinancialProfile",
+
+    "Gets the financial profile of a user.",
+
+    getFinancialProfileInputSchema.shape,
+
+    async (input) =>
+      asToolResult(
+        await getFinancialProfile(input),
+      ),
+  );
+
+  server.tool(
+    "getMortgageProducts",
+
+    "Gets the active mortgage products available to the user.",
+
+    getMortgageProductsInputSchema.shape,
+
+    async () =>
+      asToolResult(
+        await getMortgageProducts(),
+      ),
+  );
+
+  server.tool(
+    "simulateMortgage",
+
+    "Simulates a mortgage using a real financial product.",
+
+    simulateMortgageInputSchema.shape,
+
+    async (input) =>
+      asToolResult(
+        await simulateMortgage(input),
+      ),
+  );
+
+  server.tool(
+    "createSavingsGoal",
+
+    "Creates and persists a savings goal for a user.",
+
+    createSavingsGoalInputSchema.shape,
+
+    async (input) =>
+      asToolResult(
+        await createSavingsGoal(input),
+      ),
+  );
+
+  server.tool(
+    "generateAmortizationSchedule",
+
+    "Generates an amortization schedule for a loan.",
+
+    generateAmortizationScheduleInputSchema.shape,
+
+    async (input) =>
+      asToolResult(
+        await generateAmortizationSchedule(
+          input,
+        ),
+      ),
+  );
 
   server.tool(
     "analyzeRefinancing",
@@ -44,32 +217,10 @@ export const createMcpServer = () => {
 
     analyzeRefinancingInputSchema.shape,
 
-    async ({
-      currentBalance,
-      currentAnnualRate,
-      remainingTermMonths,
-      newAnnualRate,
-      newTermMonths,
-      refinancingFees,
-    }) => {
-      const result = await analyzeRefinancing({
-        currentBalance,
-        currentAnnualRate,
-        remainingTermMonths,
-        newAnnualRate,
-        newTermMonths,
-        refinancingFees,
-      });
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    },
+    async (input) =>
+      asToolResult(
+        await analyzeRefinancing(input),
+      ),
   );
 
   return server;

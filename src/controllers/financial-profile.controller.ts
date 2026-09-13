@@ -73,6 +73,7 @@ export class FinancialProfileController {
         )
       );
     } catch (error) {
+      if (error instanceof Error && error.message === 'INVALID_FINANCIAL_PROFILE') return res.status(400).json(errorResponse('INVALID_FINANCIAL_PROFILE', 'Revisa los montos y el score de crédito.'));
       if (
         error instanceof Error &&
         error.message === 'FINANCIAL_PROFILE_NOT_FOUND'
@@ -108,6 +109,7 @@ export class FinancialProfileController {
         successResponse(summary)
       );
     } catch (error) {
+      if (error instanceof Error && error.message === 'INVALID_FINANCIAL_PROFILE') return res.status(400).json(errorResponse('INVALID_FINANCIAL_PROFILE', 'Revisa los montos y el score de crédito.'));
       if (
         error instanceof Error &&
         error.message === 'FINANCIAL_PROFILE_NOT_FOUND'

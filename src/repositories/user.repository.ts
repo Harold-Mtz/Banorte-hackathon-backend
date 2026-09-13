@@ -1,11 +1,36 @@
-import { pool } from '../config/database';
-import { User } from '../models/user.model';
+import { pool } from "../config/database";
+import { User } from "../models/user.model";
 
 export type AuthUser = User & {
   passwordHash: string;
 };
 
 export class UserRepository {
+  async create(
+    name: string,
+    email: string,
+    passwordHash: string,
+  ): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        "INSERT INTO users (name,email,password_hash) VALUES ($1,$2,$3) RETURNING id",
+        [name, email, passwordHash],
+      );
+      await client.query(
+        "INSERT INTO financial_profiles (user_id) VALUES ($1)",
+        [result.rows[0].id],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async findById(id: string): Promise<User | null> {
     const result = await pool.query(
       `
@@ -18,7 +43,7 @@ export class UserRepository {
       FROM users
       WHERE id = $1
       `,
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
@@ -32,7 +57,7 @@ export class UserRepository {
       name: row.name,
       email: row.email,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
     };
   }
 
@@ -49,7 +74,7 @@ export class UserRepository {
       FROM users
       WHERE email = $1
       `,
-      [email]
+      [email],
     );
 
     if (result.rows.length === 0) {
@@ -64,7 +89,7 @@ export class UserRepository {
       email: row.email,
       passwordHash: row.password_hash,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
     };
   }
 }
