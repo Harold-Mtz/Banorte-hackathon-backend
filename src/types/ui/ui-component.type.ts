@@ -8,7 +8,12 @@ export type UIComponentType =
   | 'product-comparison'
   | 'savings-goal-form'
   | 'goal-progress'
-  | 'confirmation';
+  | 'confirmation'
+  | 'financial-dashboard'
+  | 'goal-dashboard'
+  | 'activity-list'
+  | 'cashflow-alert'
+  | 'credit-options';
 
 export interface UIComponent {
   id: string;
