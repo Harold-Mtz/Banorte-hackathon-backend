@@ -10,6 +10,7 @@ export type UIComponentType =
   | 'goal-progress'
   | 'confirmation'
   | 'financial-dashboard'
+  | 'decision-insights'
   | 'goal-dashboard'
   | 'activity-list'
   | 'cashflow-alert'

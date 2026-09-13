@@ -7,7 +7,8 @@ export const generateAmortizationScheduleInputSchema = z.object({
 
   annualInterestRate: z.number().nonnegative(),
 
-  termMonths: z.number().int().positive(),
+  // Bound the rendered schedule and the amount of work per authenticated request.
+  termMonths: z.number().int().positive().max(600),
 });
 
 export type GenerateAmortizationScheduleInput = z.infer<

@@ -52,6 +52,8 @@ async function main() {
     let response = await post('/api/agent/message', { message: 'Quiero ver mi dashboard financiero', userId: otherId });
     sessionId = response.body.data.sessionId;
     check(dashboard(response).availableMonthlyCash === 18000, 'Dashboard calculates monthly available');
+    const initialRadar = component(response, 'decision-insights').props;
+    check(['ai','rules'].includes(initialRadar.source) && initialRadar.transport === 'mcp', 'Initial adaptive radar comes through real MCP with an honest source label');
     check((await pool.query('SELECT user_id FROM agent_sessions WHERE id=$1', [sessionId])).rows[0].user_id === userId, 'JWT subject overrides spoofed browser userId');
     check((await post('/api/agent/message', { message: 'dashboard', sessionId }, otherToken)).status === 404, 'Foreign session rejected on message');
     check((await interact('REFRESH_DASHBOARD', {}, 'dashboard', otherToken)).status === 404, 'Foreign session rejected on interaction');
@@ -92,6 +94,9 @@ async function main() {
     response = await interact('RECORD_FINANCIAL_MOVEMENT', { type: 'EXPENSE', amount: 20000 });
     response = await interact('CONFIRM_RECORD_FINANCIAL_MOVEMENT', {}, component(response, 'cashflow-alert').id);
     check(dashboard(response).monthlyExpenses === 30000 && dashboard(response).availableMonthlyCash === -500 && !component(response, 'cashflow-alert'), 'Confirmed expense updates totals and clears alert');
+    const refreshedRadar = component(response, 'decision-insights').props;
+    const plannedContributions = dashboard(response).goals.filter((item: any) => item.status === 'ACTIVE').reduce((sum: number, item: any) => sum + (item.monthlyContribution || 0), 0);
+    check(refreshedRadar.source === 'rules' && refreshedRadar.signals.find((item: any) => item.id === 'protected-margin').value === dashboard(response).availableMonthlyCash - plannedContributions, 'Financial interaction recomputes protected margin from fresh domain facts');
     response = await interact('RECORD_FINANCIAL_MOVEMENT', { type: 'WITHDRAWAL', amount: 500, goalId: goal.id });
     response = await interact('CONFIRM_RECORD_FINANCIAL_MOVEMENT', {}, component(response, 'cashflow-alert').id);
     check(dashboard(response).currentSavings === 51500 && dashboard(response).availableMonthlyCash === -1000 && dashboard(response).goals[0].currentAmount === 1500, 'Withdrawal updates savings, available and linked goal');
@@ -112,6 +117,9 @@ async function main() {
     check(component(response, 'credit-options').props.products.some((item: any) => item.id === productId && item.annualRate === 10.5), 'Credit uses real catalog rate in percentage points');
     response = await interact('UPDATE_MORTGAGE_SIMULATION', { productId, propertyValue: 1000000, downPayment: 200000, termMonths: 120 }, 'mortgage-simulator');
     const payment = component(response, 'mortgage-simulator').props.estimatedMonthlyPayment;
+    const paymentRows = component(response, 'mortgage-simulator').props.schedule;
+    check(paymentRows.length === 120 && paymentRows.every((row: any) => row.principal >= 0 && row.interest >= 0), 'Simulator returns the service amortization table for each month');
+    check(paymentRows[paymentRows.length - 1].remainingBalance === 0, 'Amortization chart ends at a paid balance');
     const schedule = await createGenerateAmortizationScheduleTool(new AmortizationService())({ principal: 800000, annualInterestRate: 10.5, termMonths: 120 });
     check(Math.abs(payment - schedule.monthlyPayment) <= 0.01, 'Mortgage payment matches amortization at the catalog rate');
     check((await interact('UPDATE_MORTGAGE_SIMULATION', { productId, propertyValue: 1000000, downPayment: 1000000, termMonths: 120 })).status === 409, 'Mortgage rejects invalid down payment');

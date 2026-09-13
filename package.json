@@ -10,7 +10,8 @@
     "db:test": "tsx src/scripts/test-db.ts",
     "test:tools": "ts-node src/scripts/test-credit-tools.ts",
     "db:migrate": "npm run build && node dist/scripts/migrate-demo.js",
-    "test:demo": "npm run build && node dist/scripts/test-demo.js"
+    "test:demo": "npm run build && node dist/scripts/test-demo.js",
+    "test:radar": "npm run build && node dist/scripts/test-radar.js"
   },
   "repository": {
     "type": "git",
