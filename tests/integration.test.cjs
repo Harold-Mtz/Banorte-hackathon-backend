@@ -312,3 +312,18 @@ test("AI steps are validated and fall back without losing calculation guidance",
  const invalid = new AgentService({}, {}, {generate: async () => '{"steps":["Gana $5000"]}'});
  assert.deepEqual(await invalid.personalizePlan('Viajar','',fallback),{steps:fallback,source:'rules'});
 });
+
+test("CORS permits the production frontend and token preflight but excludes unrelated origins", async () => {
+ const origin = 'https://banorte-hackathon2026-frontend.vercel.app';
+ for (const route of ['/api/auth/register', '/api/agent/message']) {
+  const response = await fetch(app.url + route, {method:'OPTIONS',headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,authorization'}});
+  assert.equal(response.status,204);
+  assert.equal(response.headers.get('access-control-allow-origin'),origin);
+  assert.match(response.headers.get('access-control-allow-headers'),/authorization/i);
+ }
+ const unauthenticated = await fetch(app.url + '/api/agent/message', {method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:'{}'});
+ assert.equal(unauthenticated.status,401);
+ assert.equal(unauthenticated.headers.get('access-control-allow-origin'),origin);
+ const rejected = await fetch(app.url + '/api/auth/register', {method:'OPTIONS',headers:{Origin:'https://unrelated.example','Access-Control-Request-Method':'POST'}});
+ assert.equal(rejected.headers.get('access-control-allow-origin'),null);
+});

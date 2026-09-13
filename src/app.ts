@@ -18,19 +18,18 @@ import { requireAuth } from './middleware/auth';
 
 const app = express();
 
-const allowedOrigins =
-  process.env.FRONTEND_URL
-    ?.split(",")
-    .map(origin => origin.trim());
+// Keep the production frontend available even when FRONTEND_URL still points
+// at a development origin. Extra deployments must be explicitly configured.
+const allowedOrigins = Array.from(new Set([
+  "https://banorte-hackathon2026-frontend.vercel.app/",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(process.env.FRONTEND_URL ?? "").split(","),
+].map(origin => origin.trim().replace(/\/+$/, "")).filter(Boolean)));
 
-app.use(
-  cors({
-    origin:
-      allowedOrigins?.length
-        ? allowedOrigins
-        : true,
-  }),
-);app.use(express.json());
+// Preflight must run before JWT authentication, including on private routes.
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
 
 app.all("/mcp", (req, res, next) => {
   if (!process.env.MCP_API_KEY || req.headers.authorization !== `Bearer ${process.env.MCP_API_KEY}`) return res.status(401).json({error:'Unauthorized'});

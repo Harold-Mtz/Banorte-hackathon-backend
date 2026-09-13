@@ -67,3 +67,9 @@ El comando de objetivos solicita presupuesto, ahorro a dedicar, plazo, aportaci�
 Gemini personaliza las acciones en texto estructurado validado; si falla, se usa una guía por objetivo claramente identificada. Los importes siempre proceden del cálculo del servidor. `REQUEST_SAVE_PLAN` prepara una meta desde el plan persistido, con fecha objetivo; se guarda mediante la confirmación existente y MCP. La sesión conserva formulario y proyección al recargar.
 
 Despliega juntos frontend y backend para habilitar los nuevos tipos `goal-plan-form` y `goal-plan`. No se requiere migración: se usa el contexto y la UI persistida existentes. Reinicia una experiencia anterior para obtener el formulario nuevo. Las pruebas usan una base aislada y un sustituto de Gemini, no comprueban la disponibilidad del modelo en producción.
+
+## CORS en Vercel
+
+El backend permite explícitamente `https://banorte-hackathon2026-frontend.vercel.app`, `http://localhost:5173` y `http://127.0.0.1:5173`. Para dominios adicionales configura `FRONTEND_URL` en el proyecto **backend** de Vercel, separado por comas, sin rutas como `/api`. Se normalizan espacios y barras finales. No se permiten automáticamente todos los dominios de Vercel.
+
+Después de cambiar variables o código, vuelve a desplegar el backend. El middleware CORS responde a `OPTIONS` antes de verificar JWT; las peticiones privadas siguen requiriendo un token válido. Un `401` con encabezados CORS correctos corresponde a autenticación.
