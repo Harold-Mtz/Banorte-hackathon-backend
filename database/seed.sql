@@ -12,7 +12,7 @@ VALUES (
     '11111111-1111-1111-1111-111111111111',
     'Ana Martínez',
     'ana.martinez@demo.com',
-    '$2b$12$2jPMnubdEUPuEg2pu9gkZO9.aVrArIDQR1kpPGopVcDxSgkcZ8UjW'
+    '$2b$12$OTGd3IRAvRBsO9N62cAvQOzaQv47xyFBX7v.gdsUZAKqIL5vP6HSe'
 )
 ON CONFLICT (email) DO UPDATE
 SET password_hash = EXCLUDED.password_hash;
