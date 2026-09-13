@@ -1,45 +1,20 @@
-import express from "express";
-import cors from "cors";
-import userRoutes from "./routes/user.routes";
-import financialProfileRoutes from "./routes/financial-profile.routes";
-import financialProductRoutes from "./routes/financial-product.routes";
-import mortgageRoutes, { userMortgageRouter } from "./routes/mortgage.routes";
-import lifeEventRoutes from "./routes/life-event.routes";
-import savingsGoalRoutes from "./routes/savings-goal.routes";
-import agentSessionRoutes from "./routes/agent-session.routes";
-import interactionRoutes from "./routes/interaction.routes";
-import uiStateRoutes from "./routes/ui-state.routes";
-import agentRoutes from "./routes/agent.routes";
-import testAiRoutes from "./routes/test-ai.routes";
-import authRoutes from "./routes/auth.routes";
-import { handleMcpRequest } from "./mcp/http";
+import express from 'express';
+import cors from 'cors';
+import authRoutes from './routes/auth.routes';
+import agentRoutes from './routes/agent.routes';
+import { handleMcpRequest } from './mcp/http';
+import { requireAuth } from './middleware/auth.middleware';
 
 const app = express();
-
 app.use(cors());
-app.use(express.json());
-
-app.all("/mcp", handleMcpRequest);
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/financial-profiles", financialProfileRoutes);
-app.get("/health", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Banorte Adaptive Life API is running",
-  });
+app.use(express.json({ limit: '64kb' }));
+app.get('/health', (_req, res) => res.json({ success: true, message: 'Banorte Boreas API is running' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/agent', agentRoutes);
+app.all('/mcp', requireAuth, handleMcpRequest);
+app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Ruta no disponible.' } }));
+app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  res.status(error instanceof SyntaxError ? 400 : 500).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'No se pudo procesar la solicitud.' } });
 });
-
-app.use("/api/life-events", lifeEventRoutes);
-app.use("/api/savings-goals", savingsGoalRoutes);
-app.use("/api/agent/sessions", agentSessionRoutes);
-app.use("/api/agent/interactions", interactionRoutes);
-app.use("/api", uiStateRoutes);
-app.use("/api/financial-products", financialProductRoutes);
-app.use("/api/mortgages", mortgageRoutes);
-app.use("/api/mortgage", mortgageRoutes);
-app.use("/api/users/:userId", userMortgageRouter);
-app.use("/api/agent", agentRoutes);
-app.use("/api/test-ai", testAiRoutes);
-
+// Legacy controllers are retained in source but are not exposed: mutations go through the Agent API.
 export default app;

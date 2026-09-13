@@ -18,6 +18,7 @@ export const createGenerateAmortizationScheduleTool = (
   amortizationService: IAmortizationService,
 ) => {
   return async (input: GenerateAmortizationScheduleInput) => {
+    input = generateAmortizationScheduleInputSchema.parse(input);
     const result = await amortizationService.generateSchedule({
       principal: input.principal,
       annualInterestRate: input.annualInterestRate,

@@ -17,7 +17,8 @@ const router = Router();
 
 const financialRepository = new FinancialProfileRepository();
 const financialService = new FinancialService(financialRepository);
-const geminiClient = new GeminiClient();
+// Core dashboard and financial operations also work when the classifier is unavailable.
+const geminiClient = process.env.GEMINI_API_KEY ? new GeminiClient() : { generate: async () => 'GENERAL_GOAL' };
 const sessionRepository = new AgentSessionRepository();
 const savingsGoalService = new SavingsGoalService(new SavingsGoalRepository());
 const financialProductService = new FinancialProductService(new FinancialProductRepository());

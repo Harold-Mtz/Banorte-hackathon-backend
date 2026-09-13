@@ -1,6 +1,9 @@
 export type SavingsGoalStatus =
 | 'ACTIVE'
 | 'COMPLETED'
+| 'PAUSED'
+| 'ARCHIVED'
+| 'DELETED'
 | 'CANCELLED';
 
 export interface SavingsGoal {
@@ -13,6 +16,7 @@ export interface SavingsGoal {
   monthlyContribution: number | null;
   targetDate: Date | null;
   status: SavingsGoalStatus;
+  metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }

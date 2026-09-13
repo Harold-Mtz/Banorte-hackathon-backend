@@ -24,6 +24,7 @@ export const createAnalyzeRefinancingTool = (
   refinancingService: IRefinancingService,
 ) => {
   return async (input: AnalyzeRefinancingInput) => {
+    input = analyzeRefinancingInputSchema.parse(input);
     const result = await refinancingService.analyze({
       currentBalance: input.currentBalance,
 

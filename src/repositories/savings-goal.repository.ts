@@ -38,7 +38,7 @@ export class SavingsGoalRepository {
 
   async findByUserId(userId: string): Promise<SavingsGoal[]> {
     const result = await pool.query(
-      `SELECT * FROM savings_goals WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM savings_goals WHERE user_id = $1 AND status <> 'DELETED' ORDER BY created_at DESC`,
       [userId]
     );
 
@@ -75,8 +75,19 @@ export class SavingsGoalRepository {
           : null,
       targetDate: row.target_date,
       status: row.status,
+      metadata: row.metadata ?? {},
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
+  }
+
+  async updateOwned(userId: string, id: string, data: { name?: string; targetAmount?: number; monthlyContribution?: number; targetDate?: string; status?: string; metadata?: Record<string, unknown> }) {
+    const result = await pool.query(`UPDATE savings_goals SET name = COALESCE($3, name),
+      target_amount = COALESCE($4, target_amount), monthly_contribution = COALESCE($5, monthly_contribution),
+      target_date = COALESCE($6::date, target_date), status = COALESCE($7, status), metadata = metadata || $8::jsonb,
+      updated_at = NOW() WHERE id = $1 AND user_id = $2 AND status <> 'DELETED' RETURNING *`,
+      [id, userId, data.name ?? null, data.targetAmount ?? null, data.monthlyContribution ?? null, data.targetDate ?? null, data.status ?? null, JSON.stringify(data.metadata ?? {})]);
+    if (!result.rows[0]) throw new Error('SAVINGS_GOAL_NOT_FOUND');
+    return this.mapRow(result.rows[0]);
   }
 }

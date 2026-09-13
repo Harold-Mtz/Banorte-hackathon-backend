@@ -10,7 +10,7 @@ function mapFinancialProduct(row: FinancialProductRow): FinancialProduct {
     type: row.type,
     description: row.description,
     interestRate: row.interest_rate === null ? null : Number(row.interest_rate),
-    cat: Number(row.cat),
+    cat: row.cat === null ? null : Number(row.cat),
     minimumAmount:
       row.minimum_amount === null ? null : Number(row.minimum_amount),
     maximumAmount:
