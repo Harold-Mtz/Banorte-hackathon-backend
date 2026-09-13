@@ -5,6 +5,21 @@ import {
   LLMMessage
 } from './llm-client.interface';
 
+// One retry for transient provider failures, sharing the original deadline.
+// Authentication, quota and malformed-response failures are never retried here.
+export async function requestWithTransientRetry<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMs = 4500): Promise<T> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  try {
+    return await operation(signal);
+  } catch (error) {
+    const status = (error as { status?: number } | null)?.status;
+    if (signal.aborted || !status || ![500, 502, 503, 504].includes(status)) throw error;
+    await new Promise(resolve => setTimeout(resolve, 200));
+    signal.throwIfAborted();
+    return operation(signal);
+  }
+}
+
 export class GeminiClient implements LLMClient {
 
   private readonly client: GoogleGenAI;
@@ -46,16 +61,18 @@ export class GeminiClient implements LLMClient {
         .join('\n');
 
     const response =
-      await this.client.models.generateContent({
+      await requestWithTransientRetry(signal => this.client.models.generateContent({
         model: this.model,
 
         contents: conversation,
 
         config: {
+          // A bounded provider request also stops network work after the UI fallback deadline.
+          abortSignal: signal,
           systemInstruction:
             systemMessages || undefined
         }
-      });
+      }));
 
     return response.text ?? '';
   }

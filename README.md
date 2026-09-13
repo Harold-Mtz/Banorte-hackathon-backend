@@ -50,3 +50,9 @@ La migración 001-demo-integrity.sql añade metadata y estados de metas, además
 Ingreso/gasto: base del perfil más movimientos del mes en America/Mexico_City. Ahorro: base más depósitos acumulados menos retiros. Disponible: ingreso menos gastos, deuda y retiros mensuales. El campo legado current_debt representa el pago mensual en el contrato existente.
 
 Tasas del catálogo en puntos porcentuales: 10.5 = 10.5%. No hay tasas de respaldo, productos de respaldo ni mensualidades inventadas. Los escenarios y retrasos son estimaciones. El catálogo seed representa datos de demostración, no una oferta ni aprobación vigente.
+
+## Radar IA y MCP
+
+El radar usa un recorrido MCP real dentro del proceso: Client del SDK, initialize, tools/call y herramienta getDecisionInsights. Gemini prioriza señales y próximos pasos validados; los montos se rehidratan desde el dominio antes de construir la UI. Las interacciones recomputan reglas sin esperar al modelo dentro de una transacción financiera.
+
+Ver docs/decision-radar.md. Para comprobar el radar: npm.cmd run test:radar. Para incluir una llamada real al proveedor configurado, establecer BOREAS_TEST_GEMINI=1 antes de ejecutar esa prueba.

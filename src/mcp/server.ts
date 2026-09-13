@@ -23,8 +23,12 @@ import { createSavingsGoalTool, createSavingsGoalInputSchema } from './tools/cre
 import { createRecordFinancialMovementTool, recordFinancialMovementInputSchema } from './tools/record-financial-movement.tool';
 import { createAnalyzeRefinancingTool, analyzeRefinancingInputSchema } from './tools/analyze-refinancing.tool';
 import { createGoalManagementTool, goalManagementInputSchema, createListSavingsGoalsTool, listGoalsInputSchema } from './tools/goal-management.tool';
+import { GeminiClient } from '../ai/gemini-client';
+import type { LLMClient } from '../ai/llm-client.interface';
+import { DecisionInsightsService } from '../services/decision-insights.service';
+import { createGetDecisionInsightsTool, getDecisionInsightsInputSchema } from './tools/get-decision-insights.tool';
 
-export const createMcpServer = (authenticatedUserId?: string) => {
+export const createMcpServer = (authenticatedUserId?: string, options?: { llm?: LLMClient }) => {
   const server = new McpServer({ name: 'banorte-boreas', version: '1.0.0' });
   const financial = new FinancialService(new FinancialProfileRepository());
   const products = new FinancialProductService(new FinancialProductRepository());
@@ -44,6 +48,8 @@ export const createMcpServer = (authenticatedUserId?: string) => {
   }
   register('getFinancialProfile', 'Financial profile for the JWT subject.', getFinancialProfileInputSchema, createGetFinancialProfileTool(financial));
   register('getFinancialDashboard', 'Financial dashboard and goal progress.', getFinancialDashboardInputSchema, createGetFinancialDashboardTool(movements));
+  const llm = options ? options.llm : process.env.GEMINI_API_KEY ? new GeminiClient() : undefined;
+  register('getDecisionInsights', 'Personalized decision radar from owned financial data. AI only orders a validated catalog; explicit rules fallback.', getDecisionInsightsInputSchema, createGetDecisionInsightsTool(new DecisionInsightsService(movements, llm)));
   register('getMortgageProducts', 'Active mortgage products from the catalog.', getMortgageProductsInputSchema, createGetMortgageProductsTool(products));
   register('getCreditProducts', 'Active mortgage, auto and personal credit products.', getCreditProductsInputSchema, createGetCreditProductsTool(products));
   register('simulateMortgage', 'Estimate using the selected catalog product.', simulateMortgageInputSchema, createSimulateMortgageTool(mortgage));

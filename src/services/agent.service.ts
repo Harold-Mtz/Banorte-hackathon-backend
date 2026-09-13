@@ -25,6 +25,10 @@ import { goalPlanSchema, movementSchema } from '../domain/validation';
 import { withUserTransaction } from '../config/database';
 import { UIComponent } from '../types/ui/ui-component.type';
 import { AgentSession } from '../models/agent-session.model';
+import { DecisionInsightsService, DecisionInsights } from './decision-insights.service';
+import { requestDecisionInsights } from '../mcp/decision-insights.client';
+import { AmortizationService } from './amortization.service';
+import { createGenerateAmortizationScheduleTool } from '../mcp/tools/generate-amortization-schedule.tool';
 
 type Pending = { id: string; action: string; payload: Record<string, unknown>; impact?: Record<string, unknown>; createdAt: string };
 const currency = (value: unknown) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value));
@@ -35,6 +39,8 @@ export class AgentService implements IAgentService {
   private readonly manageGoal;
   private readonly products;
   private readonly simulate;
+  private readonly decisionInsights;
+  private readonly amortization = createGenerateAmortizationScheduleTool(new AmortizationService());
   private readonly messages = new AgentMessageRepository();
   private readonly interactions = new InteractionRepository();
 
@@ -42,6 +48,7 @@ export class AgentService implements IAgentService {
     private readonly sessions: AgentSessionRepository, private readonly goals: SavingsGoalService,
     products: FinancialProductService, movements: FinancialMovementService) {
     this.dashboard = createGetFinancialDashboardTool(movements);
+    this.decisionInsights = new DecisionInsightsService(movements);
     this.movement = createRecordFinancialMovementTool(movements);
     this.createGoal = createSavingsGoalTool(goals);
     this.manageGoal = createGoalManagementTool(goals);
@@ -50,7 +57,12 @@ export class AgentService implements IAgentService {
   }
 
   async processMessage(data: AgentRequestDTO): Promise<AgentResponse> {
+    if (data.sessionId) await this.ownedSession(data.userId, data.sessionId);
     const intent = await this.resolveIntent(data.message);
+    // MCP/Gemini finish before taking the transaction lock used for session writes.
+    // If transport fails, respond() computes the explicit rules fallback from current facts.
+    let insights: DecisionInsights | undefined;
+    try { insights = await requestDecisionInsights(data.userId, this.llm, data.message); } catch { /* domain fallback */ }
     return withUserTransaction(data.userId, async () => {
       const session = data.sessionId ? await this.ownedSession(data.userId, data.sessionId) : await this.sessions.create(data.userId, undefined, intent);
       await this.messages.create(session.id, 'USER', data.message);
@@ -77,7 +89,7 @@ export class AgentService implements IAgentService {
       }
       session.context.extras = extras;
       await this.sessions.updateContext(session.id, session.context);
-      return this.respond(session, message);
+      return this.respond(session, message, insights);
     });
   }
 
@@ -168,8 +180,9 @@ export class AgentService implements IAgentService {
         }
         case 'UPDATE_MORTGAGE_SIMULATION': {
           const simulation = await this.simulate({ userId: data.userId, financialProductId: String(payload.productId), propertyValue: Number(payload.propertyValue), downPayment: Number(payload.downPayment), termMonths: Number(payload.termMonths) });
+          const amortization = await this.amortization({ principal: simulation.loanAmount, annualInterestRate: simulation.annualInterestRate, termMonths: simulation.termMonths });
           const products = await this.products({ type: 'MORTGAGE' });
-          session.context.extras = [...await this.creditComponents('MORTGAGE'), { id: 'mortgage-simulator', type: 'mortgage-simulator', title: 'Simulación hipotecaria estimada', props: { ...simulation, productId: payload.productId, products: products.map(product => this.productData(product)), annualRate: simulation.annualInterestRate, estimatedMonthlyPayment: simulation.monthlyPayment, estimated: true } }];
+          session.context.extras = [...await this.creditComponents('MORTGAGE'), { id: 'mortgage-simulator', type: 'mortgage-simulator', title: 'Simulación hipotecaria estimada', props: { ...simulation, productId: payload.productId, products: products.map(product => this.productData(product)), annualRate: simulation.annualInterestRate, estimatedMonthlyPayment: simulation.monthlyPayment, schedule: amortization.schedule, estimated: true } }];
           message = 'Simulación calculada con la tasa del producto seleccionado. No es una aprobación de crédito.';
           break;
         }
@@ -189,9 +202,10 @@ export class AgentService implements IAgentService {
     session.context.pending = { id: randomUUID(), action, payload, impact, createdAt: new Date().toISOString() };
   }
 
-  private async respond(session: AgentSession, message: string): Promise<AgentResponse> {
+  private async respond(session: AgentSession, message: string, insights?: DecisionInsights): Promise<AgentResponse> {
     const dashboard = await this.dashboard({ userId: session.userId });
     const components: UIComponent[] = [
+      { id: 'decision-insights', type: 'decision-insights', title: 'Radar Boreas', props: { ...this.decisionInsights.fromDashboard(dashboard, insights) } },
       { id: 'financial-dashboard', type: 'financial-dashboard', title: 'Tu tablero financiero', props: { ...dashboard, selectedGoalId: session.context.selectedGoalId } },
       { id: 'goal-dashboard', type: 'goal-dashboard', title: 'Tus metas', props: { goals: dashboard.goals, selectedGoalId: session.context.selectedGoalId } },
       { id: 'activity-list', type: 'activity-list', title: 'Actividad reciente', props: { movements: dashboard.movements } },
