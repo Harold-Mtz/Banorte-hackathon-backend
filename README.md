@@ -1,4 +1,4 @@
-# Banorte Adaptive Life API
+# Banorte Borias API
 
 Express, TypeScript, PostgreSQL, JWT, Gemini y MCP. El frontend hermano está en `../../Frontend/Banorte-hackathon2026-frontend`.
 
@@ -37,7 +37,7 @@ No publiques estos valores ni los transfieras al frontend. Usa HTTPS en desplieg
 - `REQUEST_CREATE_SAVINGS_GOAL` prepara datos pendientes; `CONFIRM_CREATE_SAVINGS_GOAL` usa esos datos del servidor. La UI posterior elimina la acción confirmada para impedir repetirla. Las interacciones de una sesión se serializan mediante un advisory lock PostgreSQL.
 - La UI se recupera con `GET /api/agent/sessions/:sessionId/ui-states/latest`.
 
-El clasificador Gemini conserva el fallback local existente. Los demás eventos registran el objetivo y muestran que su experiencia especializada aún está pendiente; no simulan productos o lógica falsos.
+El clasificador Gemini conserva el fallback local existente. Todos los objetivos, incluidos los libres, ofrecen un plan de ahorro con presupuesto confirmado, pasos, proyección y guardado como meta.
 
 ## Pruebas
 
@@ -59,3 +59,11 @@ Las confirmaciones no son operaciones bancarias reales. Los importes hipotecario
 ## Semántica del margen mensual
 
 `currentDebt` es deuda acumulada. `getAvailableIncome` y `financial-summary.availableIncome` calculan ahora **monthlyIncome − monthlyExpenses**; no descuentan el saldo de deuda completo cada mes. Esto también actualiza la base de la estimación orientativa de capacidad del servicio hipotecario. No se conocen obligaciones mensuales de deuda por separado. Los contratos no cambian y no se requiere migración SQL. Para aplicar esta corrección al servidor publicado, despliega la nueva revisión del backend.
+
+## Planes con Borias
+
+El comando de objetivos solicita presupuesto, ahorro a dedicar, plazo, aportación mensual, gastos nuevos y prioridades. `BUILD_GOAL_PLAN` valida esos datos y usa el perfil autenticado actual. Calcula margen, aportación necesaria, faltante y proyección mensual sin rendimientos ni inflación. La deuda acumulada no se resta como mensualidad; las mensualidades existentes deben estar incluidas en gastos del perfil. El ahorro asignado no puede exceder el ahorro actual ni el presupuesto. No se reserva automáticamente dinero entre metas distintas.
+
+Gemini personaliza las acciones en texto estructurado validado; si falla, se usa una guía por objetivo claramente identificada. Los importes siempre proceden del cálculo del servidor. `REQUEST_SAVE_PLAN` prepara una meta desde el plan persistido, con fecha objetivo; se guarda mediante la confirmación existente y MCP. La sesión conserva formulario y proyección al recargar.
+
+Despliega juntos frontend y backend para habilitar los nuevos tipos `goal-plan-form` y `goal-plan`. No se requiere migración: se usa el contexto y la UI persistida existentes. Reinicia una experiencia anterior para obtener el formulario nuevo. Las pruebas usan una base aislada y un sustituto de Gemini, no comprueban la disponibilidad del modelo en producción.

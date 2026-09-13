@@ -50,7 +50,11 @@ router.post("/interact", async (req, res) => {
     res.json(
       successResponse(await experience.interact(req.body, res.locals.userId)),
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "PLAN_SAVINGS_INVALID") {
+      res.status(400).json(errorResponse("PLAN_SAVINGS_INVALID", "El ahorro asignado supera tus ahorros o el presupuesto."));
+      return;
+    }
     res
       .status(400)
       .json(

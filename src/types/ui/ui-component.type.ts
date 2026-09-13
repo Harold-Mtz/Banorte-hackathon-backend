@@ -8,6 +8,8 @@ export type UIComponentType =
   | 'product-comparison'
   | 'savings-goal-form'
   | 'goal-progress'
+  | 'goal-plan-form'
+  | 'goal-plan'
   | 'confirmation';
 
 export interface UIComponent {

@@ -19,7 +19,8 @@ export class GeminiClient implements LLMClient {
     }
 
     this.client = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { timeout: 20000 }
     });
 
     this.model =

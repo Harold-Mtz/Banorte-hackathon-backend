@@ -41,7 +41,7 @@ require.cache[databasePath] = {
   exports: { pool },
 };
 const { GeminiClient } = require("../dist/ai/gemini-client");
-GeminiClient.prototype.generate = async () => "FIRST_HOME";
+GeminiClient.prototype.generate = async () => "UNKNOWN";
 const app = require("../dist/app").default;
 async function start(port = 0) {
   const productId = randomUUID();

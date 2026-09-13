@@ -253,3 +253,62 @@ test("ownership and allowlist reject unauthorized or malformed operations", asyn
     400,
   );
 });
+
+test("plan calculation, recovery and confirmed server values", async () => {
+ const response = await call('/agent/message', 'POST', {userId: session.user.id, message: 'Quiero viajar'});
+ const current = response.data;
+ const form = current.ui.components.find(c => c.type === 'goal-plan-form');
+ const act = (componentId, action, payload) => call('/agent/interact', 'POST', {sessionId: current.sessionId, componentId, action, payload});
+ const values = {targetAmount:120000, allocatedSavings:20000, months:10, contribution:8000, extraExpenses:4000, details:'Japón'};
+ assert.equal((await act(form.id,'BUILD_GOAL_PLAN',{...values,allocatedSavings:400000})).status,400);
+ assert.equal((await act(form.id,'BUILD_GOAL_PLAN',{...values,months:0})).status,400);
+ const built = await act(form.id,'BUILD_GOAL_PLAN',values);
+ assert.equal(built.status,200,JSON.stringify(built));
+ const plan = built.data.ui.components.find(c => c.type === 'goal-plan');
+ assert.equal(plan.props.requiredMonthly,10000);
+ assert.equal(plan.props.available,40000);
+ assert.equal(plan.props.shortfall,20000);
+ assert.equal(plan.props.monthsNeeded,13);
+ assert.equal(plan.props.feasible,false);
+ assert.equal(plan.props.projection.at(-1).amount,100000);
+ const restored = await call(`/agent/sessions/${current.sessionId}/ui-states/latest`);
+ assert.deepEqual(restored.data.schema.components.find(c => c.type === 'goal-plan').props,plan.props);
+ const review = await act(plan.id,'REQUEST_SAVE_PLAN',{targetAmount:1});
+ const confirmation = review.data.ui.components.find(c => c.type === 'confirmation');
+ assert.equal(confirmation.props.targetAmount,120000);
+ assert.ok(confirmation.props.targetDate);
+ assert.equal((await act(confirmation.id,'CONFIRM_CREATE_SAVINGS_GOAL')).status,200);
+ assert.equal((await act(plan.id,'REQUEST_SAVE_PLAN')).status,400);
+ assert.equal((await act(confirmation.id,'CONFIRM_CREATE_SAVINGS_GOAL')).status,400);
+});
+test("zero contributions, completed savings and insufficient income", () => {
+ const {buildGoalPlan} = require('../dist/services/goal-plan.service');
+ const profile = {monthlyIncome:10000,monthlyExpenses:12000,currentSavings:5000};
+ const input = {targetAmount:10000,allocatedSavings:0,months:12,contribution:0,extraExpenses:0};
+ const result = buildGoalPlan(input,profile,'Mi proyecto','UNKNOWN');
+ assert.equal(result.monthsNeeded,null);
+ assert.equal(result.feasible,false);
+ assert.equal(result.available,-2000);
+ assert.equal(result.projection.at(-1).amount,0);
+ const complete = buildGoalPlan({...input,targetAmount:5000,allocatedSavings:5000},{...profile,monthlyExpenses:5000},'Estudiar','EDUCATION');
+ assert.equal(complete.monthsNeeded,0);
+ assert.equal(complete.feasible,true);
+ assert.ok(complete.steps.some(s => s.includes('becas')));
+});
+
+test("all goal categories and free text receive a planner", async () => {
+ for (const [message,intent] of [['Quiero un auto','CAR_PURCHASE'],['Quiero estudiar','EDUCATION'],['Quiero viajar','TRAVEL'],['Quiero casarme','MARRIAGE'],['Prepararme para un hijo','CHILD'],['Abrir mi taller','UNKNOWN']]) {
+  const result = await call('/agent/message','POST',{userId:session.user.id,message});
+  assert.equal(result.status,200);
+  assert.equal(result.data.intent,intent);
+  assert.ok(result.data.ui.components.some(c => c.type === 'goal-plan-form'));
+ }
+});
+test("AI steps are validated and fall back without losing calculation guidance", async () => {
+ const {AgentService} = require('../dist/services/agent.service');
+ const fallback = ['Paso base', 'Cuida tu margen', 'Revisa el plazo', 'Actualiza datos'];
+ const service = new AgentService({}, {}, {generate: async () => JSON.stringify({steps:['Cotiza transporte para Japón.', 'Comprueba tus documentos de viaje.', 'Elige hospedaje cerca de tus actividades.']})});
+ assert.equal((await service.personalizePlan('Viajar','Japón',fallback)).source,'ai');
+ const invalid = new AgentService({}, {}, {generate: async () => '{"steps":["Gana $5000"]}'});
+ assert.deepEqual(await invalid.personalizePlan('Viajar','',fallback),{steps:fallback,source:'rules'});
+});

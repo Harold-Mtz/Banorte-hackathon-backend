@@ -1,3 +1,4 @@
+import { buildGoalPlan } from "./goal-plan.service";
 import { callDomainTool } from "../mcp/tools/client";
 import { randomUUID } from "crypto";
 import { z } from "zod";
@@ -72,7 +73,7 @@ export class AdaptiveExperienceService {
     if (!session) throw new Error("SESSION_NOT_FOUND");
     response.sessionId = session.id;
     await this.sessions.updateIntent(session.id, response.intent ?? "UNKNOWN");
-    await this.sessions.updateContext(session.id, { lifeEventId: event?.id });
+    await this.sessions.updateContext(session.id, { lifeEventId: event?.id, objective: data.message });
     response.ui.components = response.ui.components.filter(
       (c) => c.type === "financial-summary",
     );
@@ -123,12 +124,14 @@ export class AdaptiveExperienceService {
           ],
         },
       );
-    } else {
-      response.ui.screen.subtitle =
-        response.intent === "UNKNOWN"
-          ? "Cuéntanos qué quieres lograr para preparar tu experiencia."
-          : "Tu objetivo está registrado. La experiencia especializada estará disponible próximamente.";
     }
+    response.ui.screen.title = "Tu plan con Borias";
+    response.ui.screen.subtitle = "Confirma el presupuesto y el plazo para obtener pasos y una proyección personalizada.";
+    response.ui.components.unshift({
+      id: `plan-input-${randomUUID()}`, type: "goal-plan-form",
+      props: { objective: data.message },
+      actions: [{id: "build-plan", type: "BUILD_GOAL_PLAN", label: "Generar mi plan"}],
+    });
     await new AgentMessageRepository().create(session.id, "USER", data.message);
     await this.save(response);
     return response;
@@ -166,7 +169,19 @@ export class AdaptiveExperienceService {
         typeof session.context.lifeEventId === "string"
           ? session.context.lifeEventId
           : undefined;
-      if (data.action === "UPDATE_DOWN_PAYMENT") {
+      if (data.action === "BUILD_GOAL_PLAN") {
+        const profile = await this.financial.getProfile(userId);
+        if (!profile) throw new Error("FINANCIAL_PROFILE_NOT_FOUND");
+        const summary = ui.components.find(c => c.type === "financial-summary");
+        if (summary) summary.props = {...profile};
+        const calculated = buildGoalPlan(payload, profile, String(session.context.objective ?? "Mi objetivo"), session.currentIntent ?? "UNKNOWN");
+        const personalized = await this.agent.personalizePlan(calculated.objective, calculated.input.details, calculated.steps);
+        const plan = {...calculated, ...personalized};
+        component.props = {...component.props, input: plan.input};
+        ui.components = ui.components.filter(c => c.type !== "goal-plan" && c.type !== "confirmation");
+        ui.components.splice(1, 0, {id: randomUUID(), type: "goal-plan", props: {...plan}, actions: [{id: "save-plan", type: "REQUEST_SAVE_PLAN", label: "Guardar este plan como meta"}]});
+        await this.sessions.updateContext(session.id, {...session.context, plan, pendingGoal: undefined});
+      } else if (data.action === "UPDATE_DOWN_PAYMENT") {
         const parsed = simulateMortgageInputSchema.parse({
           ...payload,
           userId,
@@ -197,15 +212,25 @@ export class AdaptiveExperienceService {
         );
         if (comparison)
           comparison.props.selectedProductId = parsed.financialProductId;
-      } else if (data.action === "REQUEST_CREATE_SAVINGS_GOAL") {
+      } else if (data.action === "REQUEST_CREATE_SAVINGS_GOAL" || data.action === "REQUEST_SAVE_PLAN") {
+        let goalPayload = payload;
+        if (data.action === "REQUEST_SAVE_PLAN") {
+          const stored = session.context.plan as ReturnType<typeof buildGoalPlan> | undefined;
+          if (!stored) throw new Error("ACTION_NOT_AVAILABLE");
+          const start = new Date(stored.plannedAt);
+          const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + stored.input.months + 1, 0));
+          end.setUTCDate(Math.min(start.getUTCDate(), end.getUTCDate()));
+          goalPayload = {targetDate: end.toISOString().slice(0,10), name: stored.objective.slice(0, 150), targetAmount: stored.input.targetAmount, currentAmount: stored.input.allocatedSavings, ...(stored.input.contribution > 0 ? {monthlyContribution: stored.input.contribution} : {})};
+        }
         const pendingGoal = createSavingsGoalInputSchema.parse({
-          ...payload,
+          ...goalPayload,
           userId,
           lifeEventId,
         });
         await this.sessions.updateContext(session.id, {
           ...session.context,
           pendingGoal,
+          pendingPlan: data.action === "REQUEST_SAVE_PLAN",
         });
         ui.components = ui.components.filter((c) => c.type !== "confirmation");
         ui.components.push({
@@ -246,6 +271,9 @@ export class AdaptiveExperienceService {
           pendingGoal: undefined,
         });
         ui.components = ui.components.filter((c) => c.type !== "confirmation");
+        if (session.context.pendingPlan) {
+          for (const c of ui.components) if (c.type === "goal-plan") c.actions = [];
+        }
         ui.components.push(
           { id: goal.id, type: "goal-progress", props: { ...goal } },
           {
